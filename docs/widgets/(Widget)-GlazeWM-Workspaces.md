@@ -14,6 +14,7 @@
 | `enable_scroll_switching` | boolean | `true`      | Enable scroll switching between workspaces.                                 |
 | `reverse_scroll_direction` | boolean | `false`      | Reverse scroll direction.                                                  |
 | `app_icons`    | dict    | `{'enabled_populated': False, 'enabled_active': False, 'enabled_focused': None, 'size': 16, 'max_icons': 0, 'hide_label': False, 'hide_duplicates': False, 'hide_floating': False}` | Controls the display of opened app icons per workspace. `enabled_focused` falls back to `enabled_active` if not explicitly set to a non-None bool value.  |
+| `urgent`       | dict    | `{'enabled': True, 'blink': True, 'blink_interval': 500}` | Marks workspaces holding a window that has requested attention. Requires GlazeWM 3.9+. |
 
 ## Example Configuration
 
@@ -33,6 +34,10 @@ glazewm_workspaces:
       hide_label: false
       hide_duplicates: false
       hide_floating: false
+    urgent:
+      enabled: true
+      blink: true
+      blink_interval: 500
 
     # By default workspace names are fetched from GlazeWM and "display_name" option takes priority over "name".
     # However, you can customize populated and empty labels here using {name} and {display_name} placeholders if needed.
@@ -65,6 +70,10 @@ glazewm_workspaces:
   - **hide_label:** Whether to hide the label of the workspace buttons that app icons are displayed.
   - **hide_duplicates:** Whether to hide duplicate app icons.
   - **hide_floating:** Whether to hide floating window app icons.
+- **urgent:** Highlights workspaces containing a window that asked for attention (a flashing taskbar button, or GlazeWM's `set-urgency` command from a window rule).
+  - **enabled:** Whether to apply the `urgent` class at all.
+  - **blink:** Whether to also toggle a `blink` class on and off. Turn this off for a steady highlight.
+  - **blink_interval:** Milliseconds the `blink` class stays on, then off. A full cycle is twice this.
 
 ## Note on Workspace Names
 In GlazeWM config use "1", "2", "3" for workspace "name" and NOT some custom string. This will ensure proper sorting of workspaces.
@@ -94,8 +103,24 @@ workspaces:
 .glazewm-workspaces .ws-btn.focused_empty {} /*Style for focused empty workspace button.*/
 .glazewm-workspaces .ws-btn.populated {} /*Style for populated workspace button.*/
 .glazewm-workspaces .ws-btn.empty {} /*Style for empty workspace button.*/
+.glazewm-workspaces .ws-btn.urgent {} /*Style for a workspace holding a window that wants attention.*/
+.glazewm-workspaces .ws-btn.urgent.blink {} /*Style applied on alternating ticks while blinking.*/
 .glazewm-workspaces .offline-status {} /*Style for offline status label.*/
 ```
+
+The `urgent` class stays applied for as long as the window is urgent; `blink`
+is added and removed on a timer. Qt stylesheets have no `@keyframes`, so
+animating this means styling the two classes rather than writing a CSS
+animation. A minimal blink:
+
+```css
+.glazewm-workspaces .ws-btn.urgent { background-color: #f38ba8; color: #11111b; }
+.glazewm-workspaces .ws-btn.urgent.blink { background-color: transparent; color: #f38ba8; }
+```
+
+Urgency is reported per window by GlazeWM and collapsed to the workspace, so a
+workspace is urgent while *any* window on it is. It clears when the window is
+focused, or when `set-urgency --urgent=false` runs.
 Note: `focused_populated` and `focused_empty` MUST COME AFTER `active_populated` and `active_empty`, respectively, otherwise the `active_*` classes will override any CSS conflicting properties set by their `focused_*` counterparts. Any property that you do not want the `focused_*` classes to inherit from their `active_*` counterparts will need to be set to an explicit value or **unset** if you both do not want to inherit a specific property and you do not want to set it to something.
 
 If `app_icons` is enabled (either `enabled_populated`, `enabled_active`, or `enabled_focused`), the following styles are available:

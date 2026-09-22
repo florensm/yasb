@@ -12,6 +12,21 @@ class AppIconsConfig(CustomBaseModel):
     hide_floating: bool = False
 
 
+class UrgentConfig(CustomBaseModel):
+    """Styling hooks for a workspace holding a window that wants attention.
+
+    GlazeWM reports urgency per window over IPC (`isUrgent`, kept current by
+    the `window_urgency_changed` event). When `blink` is off the `urgent`
+    class simply stays applied, so a static highlight is styled the same way
+    as a blinking one -- only the extra `blink` class comes and goes.
+    """
+
+    enabled: bool = True
+    blink: bool = True
+    # Half-period: how long the `blink` class stays on, then off.
+    blink_interval: int = 500
+
+
 class GlazewmWorkspacesConfig(CustomBaseModel):
     offline_label: str = "GlazeWM Offline"
     populated_label: str | None = None
@@ -26,3 +41,4 @@ class GlazewmWorkspacesConfig(CustomBaseModel):
     enable_scroll_switching: bool = True
     reverse_scroll_direction: bool = False
     app_icons: AppIconsConfig = AppIconsConfig()
+    urgent: UrgentConfig = UrgentConfig()

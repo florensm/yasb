@@ -20,6 +20,7 @@ class Window:
     process_name: str
     display_state: str
     is_floating: bool
+    is_urgent: bool = False
 
 
 @dataclass
@@ -30,6 +31,15 @@ class Workspace:
     is_displayed: bool = False
     num_windows: int = 0
     windows: list[Window] = field(default_factory=list)
+
+    @property
+    def has_urgent(self) -> bool:
+        """True when any window on this workspace is asking for attention.
+
+        GlazeWM tracks urgency per window, but the bar shows one button per
+        workspace, so it is collapsed here rather than at every call site.
+        """
+        return any(window.is_urgent for window in self.windows)
 
 
 @dataclass
@@ -220,6 +230,7 @@ class GlazewmClient(QObject):
                         process_name=child.get("processName"),
                         display_state=child.get("displayState"),
                         is_floating=child.get("state").get("type") == "floating",
+                        is_urgent=child.get("isUrgent", False),
                     )
                 )
             elif child.get("type") == "split":
