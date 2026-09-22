@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from typing import override
 
 from PIL import Image
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from PyQt6.QtGui import QImage, QMouseEvent, QPixmap, QShowEvent, QWheelEvent
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
@@ -32,6 +32,22 @@ def natural_sort_key(s: str, _nsre: re.Pattern[str] = re.compile(r"(\d+)")):
     return [int(text) if text.isdigit() else text.lower() for text in _nsre.split(s)]
 
 
+def urgent_classes(config: GlazewmWorkspacesConfig, has_urgent: bool, blink_on: bool) -> str:
+    """Extra CSS classes for a workspace button holding an urgent window.
+
+    Returned rather than set directly because both button types rebuild
+    their whole `class` property from scratch on every update, so the
+    urgency classes have to be appended at the end of that rebuild.
+
+    Qt stylesheets have no `@keyframes`, so the blink is driven from a
+    timer that flips `blink_on`; CSS only ever sees a class appear and
+    disappear.
+    """
+    if not (config.urgent.enabled and has_urgent):
+        return ""
+    return " urgent blink" if blink_on else " urgent"
+
+
 class GlazewmWorkspaceButton(QPushButton):
     def __init__(
         self,
@@ -50,6 +66,8 @@ class GlazewmWorkspaceButton(QPushButton):
         self.monitor_exclusive = config.monitor_exclusive
         self.is_displayed = False
         self.is_focused = False
+        self.has_urgent = False
+        self.blink_on = False
         self.workspace_window_count = 0
         self.status = WorkspaceStatus.EMPTY
         self.clicked.connect(self._activate_workspace)  # type: ignore
@@ -67,6 +85,7 @@ class GlazewmWorkspaceButton(QPushButton):
             button_class += WorkspaceStatus.ACTIVE_EMPTY + " " + self.status.value
         else:
             button_class += self.status.value
+        button_class += urgent_classes(self.config, self.has_urgent, self.blink_on)
         self.setProperty("class", button_class)
         refresh_widget_style(self)
 
@@ -148,6 +167,8 @@ class GlazewmWorkspaceButtonWithIcons(QFrame):
         self.monitor_exclusive = config.monitor_exclusive
         self.is_displayed = False
         self.is_focused = False
+        self.has_urgent = False
+        self.blink_on = False
         self.status = WorkspaceStatus.EMPTY
         self.workspace_window_count = 0
         self.windows = windows
@@ -179,6 +200,7 @@ class GlazewmWorkspaceButtonWithIcons(QFrame):
             button_class += WorkspaceStatus.ACTIVE_EMPTY + " " + self.status.value
         else:
             button_class += self.status.value
+        button_class += urgent_classes(self.config, self.has_urgent, self.blink_on)
         self.setProperty("class", button_class)
         refresh_widget_style(self)
         # Even though the label class name, we still need to run this on the label to catch any different stylings we want to do when the status changes
@@ -369,12 +391,18 @@ class GlazewmWorkspacesWidget(BaseWidget):
         self.glazewm_client = GlazewmClient(
             self.config.glazewm_server_uri,
             [
-                "sub -e workspace_activated workspace_deactivated workspace_updated focus_changed focused_container_moved",
+                "sub -e workspace_activated workspace_deactivated workspace_updated focus_changed focused_container_moved window_urgency_changed",
                 "query monitors",
             ],
         )
         self.glazewm_client.glazewm_connection_status.connect(self._update_connection_status)  # type: ignore
         self.glazewm_client.workspaces_data_processed.connect(self._update_workspaces)  # type: ignore
+
+        # Flips the `blink` class on every tick. Only runs while at least one
+        # workspace is urgent, so an idle bar costs no timer wakeups.
+        self._blink_timer = QTimer(self)
+        self._blink_timer.setInterval(max(50, self.config.urgent.blink_interval))
+        self._blink_timer.timeout.connect(self._toggle_blink)  # type: ignore
         self.icon_cache = dict()
         self.workspace_app_icons_enabled = (
             self.config.app_icons.enabled_populated
@@ -439,6 +467,7 @@ class GlazewmWorkspacesWidget(BaseWidget):
             btn.workspace_window_count = workspace.num_windows
             btn.is_displayed = workspace.is_displayed
             btn.is_focused = btn.workspace_name == global_focused_ws if global_focused_ws else workspace.focus
+            btn.has_urgent = workspace.has_urgent
             if self.workspace_app_icons_enabled:
                 btn.windows = workspace.windows
 
@@ -458,6 +487,7 @@ class GlazewmWorkspacesWidget(BaseWidget):
                 btn.workspace_window_count = workspace.num_windows
                 btn.is_displayed = workspace.is_displayed
                 btn.is_focused = btn.workspace_name == global_focused_ws if global_focused_ws else workspace.focus
+                btn.has_urgent = workspace.has_urgent
                 if self.workspace_app_icons_enabled:
                     btn.windows = workspace.windows
             else:
@@ -465,6 +495,10 @@ class GlazewmWorkspacesWidget(BaseWidget):
                 btn.is_displayed = False
                 btn.workspace_window_count = 0
                 btn.is_focused = False
+                # A workspace off this monitor still reports urgency, so
+                # keep it rather than clearing it with the other state --
+                # that is what lets a hidden workspace advertise itself.
+                btn.has_urgent = workspace.has_urgent if workspace else False
                 if self.workspace_app_icons_enabled:
                     btn.windows = []
 
@@ -481,6 +515,39 @@ class GlazewmWorkspacesWidget(BaseWidget):
                 else:
                     btn.setHidden(True)
 
+            btn.update_button()
+
+        self._sync_blink_timer()
+
+    def _sync_blink_timer(self):
+        """Runs the blink timer only while something is actually urgent.
+
+        Also clears `blink_on` on the way down, so a workspace whose urgency
+        is cleared mid-blink can't be left stuck on the lit frame.
+        """
+        if not (self.config.urgent.enabled and self.config.urgent.blink):
+            return
+
+        any_urgent = any(btn.has_urgent for btn in self.workspaces.values())
+        if any_urgent and not self._blink_timer.isActive():
+            self._blink_timer.start()
+        elif not any_urgent and self._blink_timer.isActive():
+            self._blink_timer.stop()
+            for btn in self.workspaces.values():
+                if btn.blink_on:
+                    btn.blink_on = False
+                    # Repaint here: callers have already run their own
+                    # `update_button` pass by this point, so without this the
+                    # `blink` class would linger until the next GlazeWM event.
+                    btn.update_button()
+
+    @pyqtSlot()
+    def _toggle_blink(self):
+        for btn in self.workspaces.values():
+            if btn.has_urgent:
+                btn.blink_on = not btn.blink_on
+            else:
+                btn.blink_on = False
             btn.update_button()
 
     def _get_active_workspace(

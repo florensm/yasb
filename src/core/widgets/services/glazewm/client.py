@@ -25,6 +25,7 @@ class Window:
     y: int = 0
     width: int = 0
     height: int = 0
+    is_urgent: bool = False
 
 
 @dataclass
@@ -39,6 +40,15 @@ class Workspace:
     y: int = 0
     width: int = 0
     height: int = 0
+
+    @property
+    def has_urgent(self) -> bool:
+        """True when any window on this workspace is asking for attention.
+
+        GlazeWM tracks urgency per window, but the bar shows one button per
+        workspace, so it is collapsed here rather than at every call site.
+        """
+        return any(window.is_urgent for window in self.windows)
 
 
 @dataclass
@@ -248,6 +258,7 @@ class GlazewmClient(QObject):
                         y=child.get("y", 0) or 0,
                         width=child.get("width", 0) or 0,
                         height=child.get("height", 0) or 0,
+                        is_urgent=child.get("isUrgent", False),
                     )
                 )
             elif child.get("type") == "split":
