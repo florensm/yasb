@@ -20,6 +20,11 @@ class Window:
     process_name: str
     display_state: str
     is_floating: bool
+    minimized: bool = False
+    x: int = 0
+    y: int = 0
+    width: int = 0
+    height: int = 0
 
 
 @dataclass
@@ -30,6 +35,10 @@ class Workspace:
     is_displayed: bool = False
     num_windows: int = 0
     windows: list[Window] = field(default_factory=list)
+    x: int = 0
+    y: int = 0
+    width: int = 0
+    height: int = 0
 
 
 @dataclass
@@ -89,6 +98,15 @@ class GlazewmClient(QObject):
 
     def activate_workspace(self, workspace_name: str):
         self._websocket.sendTextMessage(f"command focus --workspace {workspace_name}")
+
+    def move_window_to_workspace(self, window_id: str, workspace_name: str):
+        self._websocket.sendTextMessage(f"command --id {window_id} move --workspace {workspace_name}")
+
+    def focus_window(self, window_id: str):
+        self._websocket.sendTextMessage(f"command --id {window_id} focus")
+
+    def refresh_workspaces(self):
+        self._websocket.sendTextMessage(QueryType.MONITORS)
 
     def toggle_tiling_direction(self):
         self._websocket.sendTextMessage("command toggle-tiling-direction")
@@ -185,6 +203,10 @@ class GlazewmClient(QObject):
                     focus=child.get("hasFocus", False),
                     num_windows=len(child.get("children", [])),
                     windows=self._read_windows(child),
+                    x=child.get("x", 0) or 0,
+                    y=child.get("y", 0) or 0,
+                    width=child.get("width", 0) or 0,
+                    height=child.get("height", 0) or 0,
                 )
                 for child in mon.get("children", [])
                 if child.get("type") == "workspace"
@@ -211,6 +233,7 @@ class GlazewmClient(QObject):
         windows = []
         for child in parent.get("children", []):
             if child.get("type") == "window":
+                state = child.get("state") or {}
                 windows.append(
                     Window(
                         id=child.get("id"),
@@ -219,7 +242,12 @@ class GlazewmClient(QObject):
                         class_name=child.get("className"),
                         process_name=child.get("processName"),
                         display_state=child.get("displayState"),
-                        is_floating=child.get("state").get("type") == "floating",
+                        is_floating=state.get("type") == "floating",
+                        minimized=state.get("type") == "minimized",
+                        x=child.get("x", 0) or 0,
+                        y=child.get("y", 0) or 0,
+                        width=child.get("width", 0) or 0,
+                        height=child.get("height", 0) or 0,
                     )
                 )
             elif child.get("type") == "split":
