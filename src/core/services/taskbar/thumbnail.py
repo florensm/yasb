@@ -1,10 +1,12 @@
 """A live picture of another window, drawn by DWM into a QML item's place."""
 
 import logging
+import time
 from ctypes import byref, wintypes
 from typing import Any
 
-from PyQt6.QtCore import QRectF, pyqtProperty, pyqtSignal
+from PyQt6 import sip
+from PyQt6.QtCore import QObject, QRectF, Qt, pyqtProperty, pyqtSignal
 from PyQt6.QtQuick import QQuickItem, QQuickWindow
 
 from core.utils.qml import qml_property
@@ -24,6 +26,10 @@ from core.utils.win32.constants import (
 )
 from core.utils.win32.structs import DWM_THUMBNAIL_PROPERTIES, RECT, SIZE
 
+# How often a thumbnail asks DWM again for the size of the window it shows, which can be resized while shown. Not
+# every frame: each ask is a round trip to DWM, and the size rarely changes.
+SOURCE_SIZE_INTERVAL = 0.5
+
 
 class _Handle:
     """The DWM thumbnail an item holds, kept apart from the item so it can be released once the item is gone."""
@@ -35,6 +41,78 @@ class _Handle:
         if self.value.value:
             DwmUnregisterThumbnail(self.value)
             self.value = wintypes.HANDLE(0)
+
+
+class _Placer(QObject):
+    """Places the thumbnails of one window, once per frame and in step with it.
+
+    Where each thumbnail goes is worked out as Qt prepares a frame, and handed to DWM once Qt has presented that
+    frame. DWM applies a thumbnail's placement at its next composition, the one that also shows the frame Qt just
+    presented, so the pictures move together with what QML draws around them. Handed over any earlier, they ran a
+    frame ahead of it."""
+
+    _placers: dict[int, _Placer] = {}
+
+    def __init__(self, window: QQuickWindow) -> None:
+        super().__init__(window)
+        self._window = window
+        self._thumbnails: list[WindowThumbnail] = []
+        # Placements worked out for the frame Qt is drawing, by the thumbnail's handle
+        self._pending: dict[int, tuple[_Handle, DWM_THUMBNAIL_PROPERTIES]] = {}
+        # Whether Qt is preparing a frame, which will be presented and so hand the placements over
+        self._measuring = False
+        window.afterAnimating.connect(self._measure)
+        # Emitted on the render thread once the frame is on its way to the screen; handled here, on this thread
+        window.frameSwapped.connect(self._apply, Qt.ConnectionType.QueuedConnection)
+        key = self._key(window)
+        self.destroyed.connect(lambda *_args: _Placer._placers.pop(key, None))
+
+    @staticmethod
+    def _key(window: QQuickWindow) -> int:
+        return sip.unwrapinstance(window)
+
+    @classmethod
+    def of(cls, window: QQuickWindow) -> _Placer:
+        """The placer of `window`, made on first use and gone with the window."""
+        key = cls._key(window)
+        placer = cls._placers.get(key)
+        if placer is None:
+            placer = cls._placers[key] = cls(window)
+        return placer
+
+    def add(self, thumbnail: WindowThumbnail) -> None:
+        if thumbnail not in self._thumbnails:
+            self._thumbnails.append(thumbnail)
+
+    def remove(self, thumbnail: WindowThumbnail) -> None:
+        if thumbnail in self._thumbnails:
+            self._thumbnails.remove(thumbnail)
+
+    def schedule(self, handle: _Handle, properties: DWM_THUMBNAIL_PROPERTIES) -> None:
+        """Hands `properties` to DWM once the frame Qt draws next is presented."""
+        self._pending[handle.value.value] = (handle, properties)
+        # Outside a frame, one has to be drawn for the placement to be handed over, e.g. when only the thumbnail's
+        # own item changed
+        if not self._measuring:
+            self._window.update()
+
+    def _measure(self) -> None:
+        # Items QML has deleted since the last frame
+        self._thumbnails = [thumbnail for thumbnail in self._thumbnails if not sip.isdeleted(thumbnail)]
+        # A parent moving or fading says nothing to its thumbnails, so each is checked every frame
+        self._measuring = True
+        try:
+            for thumbnail in self._thumbnails:
+                thumbnail._measure()
+        finally:
+            self._measuring = False
+
+    def _apply(self) -> None:
+        pending, self._pending = self._pending, {}
+        for value, (handle, properties) in pending.items():
+            # Gone, or registered again, since it was measured
+            if handle.value.value == value:
+                DwmUpdateThumbnailProperties(handle.value, byref(properties))
 
 
 class WindowThumbnail(QQuickItem):
@@ -49,12 +127,15 @@ class WindowThumbnail(QQuickItem):
         self._hwnd = 0
         self._handle = _Handle()
         self._source = (0, 0)
+        # When DWM was last asked for the source's size
+        self._source_checked = 0.0
         # The properties DWM was last given, so it is told only of changes
         self._shown: tuple[Any, ...] | None = None
         self._window: QQuickWindow | None = None
+        self._placer: _Placer | None = None
         self.destroyed.connect(self._handle.release)
         self.windowChanged.connect(self._attach)
-        self.visibleChanged.connect(self._place)
+        self.visibleChanged.connect(self._measure)
 
     def _get_hwnd(self) -> int:
         return self._hwnd
@@ -79,12 +160,12 @@ class WindowThumbnail(QQuickItem):
         return self._source[1]
 
     def _attach(self, window: QQuickWindow | None) -> None:
-        if self._window is not None:
-            self._window.afterAnimating.disconnect(self._place)
+        if self._placer is not None:
+            self._placer.remove(self)
         self._window = window
-        if window is not None:
-            # A parent moving or fading says nothing to this item, so its place is checked each frame
-            window.afterAnimating.connect(self._place)
+        self._placer = _Placer.of(window) if window is not None else None
+        if self._placer is not None:
+            self._placer.add(self)
         self._register()
 
     def _register(self) -> None:
@@ -98,10 +179,14 @@ class WindowThumbnail(QQuickItem):
             self._handle.value = wintypes.HANDLE(0)
             self._set_source((0, 0))
             return
+        self._check_source()
+        self._measure()
+
+    def _check_source(self) -> None:
         size = SIZE()
         if DwmQueryThumbnailSourceSize(self._handle.value, byref(size)) == 0:
             self._set_source((size.cx, size.cy))
-        self._place()
+        self._source_checked = time.monotonic()
 
     def _set_source(self, source: tuple[int, int]) -> None:
         if source != self._source:
@@ -110,7 +195,7 @@ class WindowThumbnail(QQuickItem):
 
     def geometryChange(self, newGeometry: QRectF, oldGeometry: QRectF) -> None:
         super().geometryChange(newGeometry, oldGeometry)
-        self._place()
+        self._measure()
 
     def _opacity(self) -> float:
         opacity = 1.0
@@ -120,13 +205,12 @@ class WindowThumbnail(QQuickItem):
             item = item.parentItem()
         return opacity
 
-    def _place(self) -> None:
-        if not self._handle.value.value or self._window is None:
+    def _measure(self) -> None:
+        """Works out where DWM should draw the picture, and has the placer hand it over if that changed."""
+        if not self._handle.value.value or self._window is None or self._placer is None:
             return
-        # Read each time, as the window shown can be resized while it is
-        size = SIZE()
-        if DwmQueryThumbnailSourceSize(self._handle.value, byref(size)) == 0:
-            self._set_source((size.cx, size.cy))
+        if time.monotonic() - self._source_checked >= SOURCE_SIZE_INTERVAL:
+            self._check_source()
         source_width, source_height = self._source
         scale = self._window.devicePixelRatio()
         rect = self.mapRectToScene(QRectF(0, 0, self.width(), self.height()))
@@ -175,4 +259,4 @@ class WindowThumbnail(QQuickItem):
         properties.fVisible = shown[8]
         properties.opacity = shown[9]
         properties.fSourceClientAreaOnly = False
-        DwmUpdateThumbnailProperties(self._handle.value, byref(properties))
+        self._placer.schedule(self._handle, properties)
