@@ -26,6 +26,9 @@ QtObject {
     property Animation exit: null
     // A pinned popup stays open when it loses focus or the bar is pressed; close() and Escape still close it
     property bool pinned: false
+    // false for a popup that shows something without taking the keyboard from the app in use, such as one that
+    // opens on hover; it then closes when the pointer or another program asks, not on focus
+    property bool takesFocus: true
     // While `exit` runs
     property bool closing: false
     // Windows can take focus away for a moment while the popup shows
@@ -82,6 +85,7 @@ QtObject {
         // A window owned by the bar would be destroyed by Windows together with it, before QML cleans up
         transientParent: null
         flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.NoDropShadowWindowHint
+            | (popup.takesFocus ? 0 : Qt.WindowDoesNotAcceptFocus)
         color: "transparent"
         // Active and inactive only, so disabled controls keep the style's dimmed colours
         palette.active.accent: popup.theme.colors.accent
@@ -170,7 +174,8 @@ QtObject {
         popupWindow.setX(popupWindow.frame.x)
         popupWindow.setY(popupWindow.frame.y)
         popupWindow.show()
-        popupWindow.requestActivate()
+        if (takesFocus)
+            popupWindow.requestActivate()
         enter?.restart()
         Qt.callLater(() => opening = false)
     }
