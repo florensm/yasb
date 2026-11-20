@@ -26,6 +26,8 @@ Theme {
         hover: dark ? Qt.alpha("#FFFFFF", 0.06) : Qt.alpha("#000000", 0.035)
         pressed: dark ? Qt.alpha("#FFFFFF", 0.04) : Qt.alpha("#000000", 0.024)
         selected: dark ? Qt.alpha("#FFFFFF", 0.06) : Qt.alpha("#000000", 0.035)
+        // Text and icons on the selected fill
+        selectedText: colors.text
         // Buttons: their fill at rest, under the pointer and while pressed, and their outline
         control: dark ? Qt.alpha("#FFFFFF", 0.06) : Qt.alpha("#FFFFFF", 0.7)
         controlHover: dark ? Qt.alpha("#FFFFFF", 0.08) : Qt.alpha("#F9F9F9", 0.5)
@@ -54,12 +56,49 @@ Theme {
         background: Qt.alpha(colors.background, 0.85)
         border: colors.border
         radius: 8
+        borderWidth: 1
         // Between the bar and the popup
         gap: 8
-        // Milliseconds
+        // A hard shadow without blur, moved this far right and down; 0 draws none
+        shadowOffset: 0
+        shadowColor: colors.border
+        // The title bar: its fill, its text and icons, and the line under it
+        headerBackground: "transparent"
+        headerText: colors.text
+        dividerWidth: 1
+        // Outlines of cards and of the selected row, and the hard shadow under cards
+        cardBorderWidth: 1
+        cardShadowOffset: 0
+        selectedBorderWidth: 0
+        // Milliseconds, the curves, and how small the popup starts as it opens (1 for no scaling)
         openDuration: 180
         closeDuration: 140
+        openEasing: Easing.OutCubic
+        closeEasing: Easing.InCubic
+        openScale: 0.85
         font.family: "Segoe UI"
+    }
+
+    // Corners in popups: chips, rows and buttons, cards, and circles. Set them all to 0 for square corners
+    radius {
+        xs: 2
+        sm: 4
+        md: 8
+        pill: 999
+    }
+
+    // Text in popups: small print, normal text, a popup's title, and big numbers
+    type {
+        caption.family: popup.font.family
+        caption.pixelSize: 12
+        body.family: popup.font.family
+        body.pixelSize: 13
+        heading.family: popup.font.family
+        heading.pixelSize: 16
+        heading.weight: Font.DemiBold
+        display.family: popup.font.family
+        display.pixelSize: 28
+        display.weight: Font.DemiBold
     }
 
     // Right-click menus

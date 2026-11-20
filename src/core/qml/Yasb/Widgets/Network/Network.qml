@@ -74,21 +74,24 @@ Item {
     property color popupTextColor: theme.colors.text
     property real popupRadius: theme.popup.radius
     property real popupGap: theme.popup.gap
-    // Text in the popup: the theme's font family, in this widget's sizes
+    // Text in the popup: the theme's body, caption and heading, each part unless set here
     property font popupFont
-    popupFont.family: theme.popup.font.family
-    popupFont.pixelSize: 13
+    popupFont.family: theme.type.body.family
+    popupFont.pixelSize: theme.type.body.pixelSize
+    popupFont.weight: theme.type.body.weight
     property font popupSmallFont
-    popupSmallFont.family: theme.popup.font.family
-    popupSmallFont.pixelSize: 12
+    popupSmallFont.family: theme.type.caption.family
+    popupSmallFont.pixelSize: theme.type.caption.pixelSize
+    popupSmallFont.weight: theme.type.caption.weight
     property font popupTitleFont
-    popupTitleFont.family: theme.popup.font.family
-    popupTitleFont.pixelSize: 16
-    popupTitleFont.weight: Font.DemiBold
+    popupTitleFont.family: theme.type.heading.family
+    popupTitleFont.pixelSize: theme.type.heading.pixelSize
+    popupTitleFont.weight: theme.type.heading.weight
+    popupTitleFont.capitalization: theme.type.heading.capitalization
     // The Wi-Fi heading
     property font popupStrongFont
-    popupStrongFont.family: theme.popup.font.family
-    popupStrongFont.pixelSize: 13
+    popupStrongFont.family: theme.type.body.family
+    popupStrongFont.pixelSize: theme.type.body.pixelSize
     popupStrongFont.weight: Font.DemiBold
     // The Wi-Fi glyph beside it, and the refresh glyph
     property int wifiIconSize: 20
@@ -386,51 +389,53 @@ Item {
         objectName: "popup"
         title: "Network"
         width: network.popupWidth
-        height: popupContent.implicitHeight
+        height: popupContent.implicitHeight + 2 * surface.border.width
         anchor: network
         font: network.popupFont
         theme: network.theme
         backdropItem: surface
-        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: network.popupOpenDuration; easing.type: Easing.OutCubic }
-        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: network.popupCloseDuration; easing.type: Easing.InCubic }
+        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: network.popupOpenDuration; easing.type: network.theme.popup.openEasing }
+        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: network.popupCloseDuration; easing.type: network.theme.popup.closeEasing }
         onVisibleChanged: {
             if (!visible)
                 reveal = 0
         }
 
-        Rectangle {
+        PopupSurface {
             id: surface
 
             anchors.fill: parent
+            theme: network.theme
+            reveal: popup.reveal
             radius: network.popupRadius
             color: network.popupColor
-            border.width: 1
             border.color: network.popupBorderColor
-            opacity: popup.reveal
-            scale: 0.85 + popup.reveal * 0.15
             transformOrigin: network.edge === "bottom" ? Item.Bottom : Item.Top
 
+            // Inside the outline, so the header's and footer's fills do not cover it
             ColumnLayout {
                 id: popupContent
 
-                width: parent.width
+                x: surface.border.width
+                y: surface.border.width
+                width: parent.width - 2 * surface.border.width
                 spacing: 0
 
-                Text {
+                PopupHeader {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 16
-                    Layout.rightMargin: 10
-                    Layout.topMargin: 12
-                    Layout.bottomMargin: 10
-                    text: "Network"
-                    color: network.popupTextColor
+                    theme: network.theme
+                    title: "Network"
                     font: network.popupTitleFont
+                    popupRadius: network.popupRadius
                 }
 
+                // Runs along the header's line while Wi-Fi looks for networks or connects
                 LoadingLine {
                     Layout.fillWidth: true
+                    Layout.topMargin: -network.theme.popup.dividerWidth
+                    Layout.preferredHeight: network.theme.popup.dividerWidth
                     running: wifi.scanning || wifi.connecting
-                    trackColor: network.popupDividerColor
+                    trackColor: "transparent"
                 }
 
                 // The internet connection when it is not Wi-Fi, such as Ethernet, mobile or a VPN, above the Wi-Fi
@@ -544,7 +549,7 @@ Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 4
+                            radius: network.theme.radius.sm
                             color: refreshArea.containsMouse && !wifi.scanning ? network.popupHoverColor : "transparent"
                         }
 
@@ -664,9 +669,9 @@ Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 8
+                            radius: network.theme.radius.md
                             color: wifiNetwork.expanded ? network.popupCardColor : headerArea.containsMouse ? network.popupHoverColor : "transparent"
-                            border.width: wifiNetwork.expanded ? 1 : 0
+                            border.width: wifiNetwork.expanded ? network.theme.popup.cardBorderWidth : 0
                             border.color: network.popupCardBorderColor
                         }
 
@@ -820,17 +825,14 @@ Item {
 
                     Layout.fillWidth: true
                     Layout.topMargin: 6
-                    Layout.leftMargin: 1
-                    Layout.rightMargin: 1
-                    Layout.bottomMargin: 1
                     implicitHeight: 44
-                    bottomLeftRadius: network.popupRadius - 1
-                    bottomRightRadius: network.popupRadius - 1
+                    bottomLeftRadius: Math.max(0, network.popupRadius - surface.border.width)
+                    bottomRightRadius: Math.max(0, network.popupRadius - surface.border.width)
                     color: network.popupSecondaryBackgroundColor
 
                     Rectangle {
                         width: parent.width
-                        height: 1
+                        height: network.theme.popup.dividerWidth
                         color: network.popupDividerColor
                     }
 

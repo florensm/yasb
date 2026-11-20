@@ -60,9 +60,12 @@ QtObject {
     readonly property Window window: Window {
         id: popupWindow
 
-        readonly property real roomX: Math.round(popup.side === "left" ? popup.windowWidth - popup.width
+        // The theme's hard shadow sticks out right and down, so a popup against the window's right or bottom edge
+        // keeps that much room there
+        readonly property real shadowRoom: Math.max(0, popup.theme.popup.shadowOffset)
+        readonly property real roomX: Math.round(popup.side === "left" ? popup.windowWidth - popup.width - shadowRoom
             : popup.side === "right" ? 0 : (popup.windowWidth - popup.width) / 2)
-        readonly property real roomY: Math.round(popup.side === "above" ? popup.windowHeight - popup.height
+        readonly property real roomY: Math.round(popup.side === "above" ? popup.windowHeight - popup.height - shadowRoom
             : popup.side === "below" ? 0 : (popup.windowHeight - popup.height) / 2)
         readonly property rect frame: Qt.rect(Math.round(popup.x) - roomX, Math.round(popup.y) - roomY,
             Math.ceil(Math.max(popup.windowWidth, popup.width)), Math.ceil(Math.max(popup.windowHeight, popup.height)))

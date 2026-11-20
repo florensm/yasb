@@ -50,17 +50,20 @@ Item {
     property color popupBorderColor: theme.popup.border
     property real popupRadius: theme.popup.radius
     property real popupGap: theme.popup.gap
-    // Text in the popup: the theme's font family, in this widget's sizes
+    // Text in the popup: the theme's body, caption and heading, each part unless set here
     property font popupFont
-    popupFont.family: theme.popup.font.family
-    popupFont.pixelSize: 13
+    popupFont.family: theme.type.body.family
+    popupFont.pixelSize: theme.type.body.pixelSize
+    popupFont.weight: theme.type.body.weight
     property font popupSmallFont
-    popupSmallFont.family: theme.popup.font.family
-    popupSmallFont.pixelSize: 12
+    popupSmallFont.family: theme.type.caption.family
+    popupSmallFont.pixelSize: theme.type.caption.pixelSize
+    popupSmallFont.weight: theme.type.caption.weight
     property font popupTitleFont
-    popupTitleFont.family: theme.popup.font.family
-    popupTitleFont.pixelSize: 16
-    popupTitleFont.weight: Font.DemiBold
+    popupTitleFont.family: theme.type.heading.family
+    popupTitleFont.pixelSize: theme.type.heading.pixelSize
+    popupTitleFont.weight: theme.type.heading.weight
+    popupTitleFont.capitalization: theme.type.heading.capitalization
     // Each device's glyph, the mark on the device in use, and the arrow of the settings link
     property int deviceIconSize: 14
     property int checkIconSize: 12
@@ -211,48 +214,10 @@ Item {
         }
     }
 
-    component IconButton: Item {
-        id: button
-
-        property string glyph
-        property int iconSize: 14
-        property bool checked: false
-        property string tip
-
-        signal clicked
-
-        implicitWidth: iconSize + 12
-        implicitHeight: iconSize + 12
-        opacity: enabled ? 1 : 0.4
-        Accessible.role: Accessible.Button
-        Accessible.onPressAction: button.clicked()
-        ToolTip.visible: area.containsMouse && tip !== ""
-        ToolTip.delay: 500
-        ToolTip.text: tip
-
-        Rectangle {
-            anchors.fill: parent
-            radius: 4
-            color: area.containsMouse ? volume.popupHoverColor : button.checked ? volume.popupSelectedColor : "transparent"
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: button.glyph
-            color: volume.popupTextColor
-            opacity: button.checked || area.containsMouse ? 1 : 0.6
-            font.family: volume.iconFont.family
-            font.weight: volume.iconFont.weight
-            font.variableAxes: volume.iconFont.variableAxes
-            font.pixelSize: button.iconSize
-        }
-
-        MouseArea {
-            id: area
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: button.clicked()
-        }
+    component IconButton: PopupIconButton {
+        theme: volume.theme
+        color: volume.popupTextColor
+        iconFont: volume.iconFont
     }
 
     BackdropPopup {
@@ -262,67 +227,56 @@ Item {
         property bool appsOpen: false
         title: "Volume"
         width: volume.popupWidth
-        height: popupContent.implicitHeight
+        height: popupContent.implicitHeight + 2 * surface.border.width
         anchor: volume
         font: volume.popupFont
         theme: volume.theme
         backdropItem: surface
-        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: volume.popupOpenDuration; easing.type: Easing.OutCubic }
-        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: volume.popupCloseDuration; easing.type: Easing.InCubic }
+        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: volume.popupOpenDuration; easing.type: volume.theme.popup.openEasing }
+        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: volume.popupCloseDuration; easing.type: volume.theme.popup.closeEasing }
         onVisibleChanged: { if (!visible) reveal = 0 }
 
-        Rectangle {
+        PopupSurface {
             id: surface
             anchors.fill: parent
+            theme: volume.theme
+            reveal: popup.reveal
             radius: volume.popupRadius
             color: volume.popupColor
-            border.width: 1
             border.color: volume.popupBorderColor
             // The sliders draw with the palette's accent
             // Active and inactive only, so disabled controls keep the style's dimmed colours
             palette.active.accent: volume.accentColor
             palette.inactive.accent: volume.accentColor
-            opacity: popup.reveal
-            scale: 0.85 + popup.reveal * 0.15
             transformOrigin: volume.edge === "bottom" ? Item.Bottom : Item.Top
 
+            // Inside the outline, so the header's and footer's fills do not cover it
             ColumnLayout {
                 id: popupContent
-                width: parent.width
+                x: surface.border.width
+                y: surface.border.width
+                width: parent.width - 2 * surface.border.width
                 spacing: 0
 
-                RowLayout {
+                PopupHeader {
+                    id: header
                     Layout.fillWidth: true
-                    Layout.leftMargin: 16
-                    Layout.rightMargin: 10
-                    Layout.topMargin: 12
-                    Layout.bottomMargin: 10
-                    spacing: 2
+                    Layout.bottomMargin: 8
+                    theme: volume.theme
+                    title: audio.deviceName || "No output device"
+                    font: volume.popupTitleFont
+                    popupRadius: volume.popupRadius
 
-                    Text {
-                        Layout.fillWidth: true
-                        text: audio.deviceName || "No output device"
-                        textFormat: Text.PlainText
-                        elide: Text.ElideRight
-                        color: volume.popupTextColor
-                        font: volume.popupTitleFont
-                    }
                     IconButton {
                         visible: audio.devices.length > 1
                         glyph: popup.devicesOpen ? "\ue70e" : "\ue70d"
                         iconSize: 12
+                        color: header.textColor
                         checked: popup.devicesOpen
                         tip: "Output devices"
                         onClicked: popup.devicesOpen = !popup.devicesOpen
                         Accessible.name: popup.devicesOpen ? "Hide output devices" : "Choose output device"
                     }
-                }
-                // The header's bottom line
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.bottomMargin: 8
-                    implicitHeight: 1
-                    color: volume.popupDividerColor
                 }
 
                 Column {
@@ -335,15 +289,16 @@ Item {
 
                     Repeater {
                         model: audio.devices
-                        delegate: Rectangle {
+                        delegate: PopupRow {
                             id: device
 
                             required property var modelData
 
                             width: parent.width
                             height: 34
-                            radius: 4
-                            color: modelData.current ? volume.popupSelectedColor : deviceArea.containsMouse ? volume.popupHoverColor : "transparent"
+                            theme: volume.theme
+                            selected: modelData.current
+                            hovered: deviceArea.containsMouse
                             Accessible.role: Accessible.RadioButton
                             Accessible.name: modelData.name
                             Accessible.checked: modelData.current
@@ -356,7 +311,7 @@ Item {
                                 x: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "\ue7f5"
-                                color: volume.popupTextColor
+                                color: device.textColor
                                 opacity: device.modelData.current ? 1 : 0.75
                                 font.family: volume.iconFont.family
                                 font.weight: volume.iconFont.weight
@@ -371,7 +326,7 @@ Item {
                                 text: device.modelData.name
                                 textFormat: Text.PlainText
                                 elide: Text.ElideRight
-                                color: device.modelData.current ? volume.popupTextColor : volume.popupSecondaryTextColor
+                                color: device.modelData.current ? device.textColor : device.secondaryTextColor
                                 font: volume.popupFont
                             }
 
@@ -381,7 +336,8 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: device.modelData.current
                                 text: "\ue73e"
-                                color: volume.accentColor
+                                // On a selected fill in the accent colour, the mark takes the text on it instead
+                                color: Qt.colorEqual(volume.theme.colors.selected, volume.accentColor) ? device.textColor : volume.accentColor
                                 font.family: volume.iconFont.family
                                 font.weight: volume.iconFont.weight
                                 font.variableAxes: volume.iconFont.variableAxes
@@ -449,16 +405,15 @@ Item {
                     }
                 }
 
-                Rectangle {
+                PopupCard {
                     Layout.fillWidth: true
                     Layout.leftMargin: 12
                     Layout.rightMargin: 12
                     Layout.bottomMargin: 12
                     visible: popup.appsOpen && volume.showApps && audio.apps.length > 0
                     implicitHeight: apps.implicitHeight + 12
-                    radius: 8
+                    theme: volume.theme
                     color: volume.popupCardColor
-                    border.width: 1
                     border.color: volume.popupCardBorderColor
 
                     Column {
@@ -480,7 +435,7 @@ Item {
                                 Rectangle {
                                     Layout.preferredWidth: 36
                                     Layout.preferredHeight: 36
-                                    radius: 6
+                                    radius: volume.theme.radius.sm
                                     color: iconArea.containsMouse ? volume.popupHoverColor : "transparent"
                                     Accessible.role: Accessible.Button
                                     Accessible.name: app.modelData.muted ? `Unmute ${app.modelData.name}` : `Mute ${app.modelData.name}`
@@ -555,60 +510,15 @@ Item {
                     }
                 }
 
-                Rectangle {
+                PopupFooter {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 1
-                    Layout.rightMargin: 1
-                    Layout.bottomMargin: 1
-                    implicitHeight: 40
-                    bottomLeftRadius: volume.popupRadius - 1
-                    bottomRightRadius: volume.popupRadius - 1
-                    color: footerArea.containsMouse ? Qt.tint(volume.popupSecondaryBackgroundColor, volume.popupHoverColor) : volume.popupSecondaryBackgroundColor
-                    Accessible.role: Accessible.Link
-                    Accessible.name: "Sound settings"
-                    Accessible.onPressAction: {
-                        Qt.openUrlExternally("ms-settings:sound")
-                        popup.close()
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: volume.popupDividerColor
-                    }
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 15
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Sound settings"
-                        color: footerArea.containsMouse ? volume.popupTextColor : volume.popupSecondaryTextColor
-                        font: volume.popupSmallFont
-                    }
-
-                    Text {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "\ue76c"
-                        color: volume.popupTextColor
-                        opacity: footerArea.containsMouse ? 1 : 0.75
-                        font.family: volume.iconFont.family
-                        font.weight: volume.iconFont.weight
-                        font.variableAxes: volume.iconFont.variableAxes
-                        font.pixelSize: volume.footerIconSize
-                    }
-
-                    MouseArea {
-                        id: footerArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            Qt.openUrlExternally("ms-settings:sound")
-                            popup.close()
-                        }
-                    }
+                    theme: volume.theme
+                    text: "Sound settings"
+                    url: "ms-settings:sound"
+                    font: volume.popupSmallFont
+                    popupRadius: volume.popupRadius
+                    arrowSize: volume.footerIconSize
+                    onActivated: popup.close()
                 }
             }
         }
