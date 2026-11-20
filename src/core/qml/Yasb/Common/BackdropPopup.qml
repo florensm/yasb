@@ -57,6 +57,15 @@ QtObject {
         window: popup.window
     }
 
+    // Windows often keeps a popup opened from the bar from taking the focus, and then never tells it that it lost
+    // it, so a click on another program closes the popup when that program comes to the front
+    readonly property ForegroundWatch foreground: ForegroundWatch {
+        onActivated: {
+            if (popup.visible && !popup.opening && !popup.pinned)
+                popup.close()
+        }
+    }
+
     readonly property Window window: Window {
         id: popupWindow
 

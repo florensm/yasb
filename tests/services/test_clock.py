@@ -24,8 +24,10 @@ from PyQt6.QtQml import QQmlComponent, QQmlEngine
 from PyQt6.QtQuick import QQuickItem, QQuickWindow
 
 from core import widget_files
+from core.events.win32 import WinEvent
 from core.qml_types import register_qml_types
 from core.services.clock.time_zones import TimeZones
+from core.utils.win32.event_listener import win_event
 from core.widget_files import BUILTIN_WIDGETS_DIR, find_widget_file
 from settings import QML_IMPORT_PATH
 from tests.support.bar import create_with_bar
@@ -178,6 +180,22 @@ def test_the_calendar_opens_on_today_in_the_clock_zone(make_clock: MakeClock, zo
             break
         _wait(10)
     assert not calendar.property("visible")
+
+
+@pytest.mark.parametrize("pinned", [False, True])
+def test_the_calendar_closes_when_another_program_comes_to_the_front(make_clock: MakeClock, pinned: bool):
+    clock = make_clock()
+    _call(clock, "toggleCalendar")
+    _wait(50)
+    calendar = _calendar(clock)
+    calendar.setProperty("pinned", pinned)
+    # What the shared hook sends when a window of another program takes the foreground
+    win_event(WinEvent.EventSystemForeground).emit(1234, WinEvent.EventSystemForeground)
+    for _ in range(100):
+        if not calendar.property("visible"):
+            break
+        _wait(10)
+    assert calendar.property("visible") == pinned
 
 
 def test_the_calendar_steps_across_the_new_year(make_clock: MakeClock):

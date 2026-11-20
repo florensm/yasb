@@ -7,6 +7,7 @@ from PyQt6.QtQml import QJSEngine, QQmlEngine, qmlRegisterSingletonType, qmlRegi
 from core.app.update.installer import Updater
 from core.app.windows.about import About
 from core.bar.backdrop import Backdrop
+from core.bar.foreground import ForegroundWatch
 from core.bar.popup_graphics import PopupGraphics
 from core.bar.window import BarContext
 from core.services.active_window.tracker import ActiveWindowTracker
@@ -60,6 +61,7 @@ QML_VERSION = (1, 0)
 QML_TYPES: tuple[type[QObject], ...] = (
     Backdrop,
     PopupGraphics,
+    ForegroundWatch,
     TimeZones,
     Hotkey,
     ActiveWindowTracker,
