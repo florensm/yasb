@@ -289,7 +289,9 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: 4
+            radius: systray.theme.radius.sm
+            border.width: hover.hovered && !systray.dragging ? systray.theme.popup.selectedBorderWidth : 0
+            border.color: systray.theme.popup.border
             color: {
                 if (button.dragOver)
                     return Qt.alpha(systray.popupTextColor, 0.16)
@@ -387,8 +389,10 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 4
-                color: toggleHover.hovered ? systray.hoveredColor : "transparent"
+                radius: systray.theme.radius.sm
+                color: toggleHover.hovered || popup.visible ? systray.hoveredColor : "transparent"
+                border.width: toggleHover.hovered || popup.visible ? systray.theme.popup.selectedBorderWidth : 0
+                border.color: systray.theme.popup.border
             }
 
             Label {
@@ -458,7 +462,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 4
+                radius: systray.theme.radius.sm
                 visible: pinnedDrop.empty && systray.dragging
                 color: Qt.alpha(systray.textColor, pinnedDrop.containsDrag ? 0.16 : 0.08)
             }
@@ -567,38 +571,37 @@ Item {
 
         objectName: "menu"
         title: "Systray"
-        width: gridWidth + frame
-        height: rows * cell + frame
+        width: gridWidth + frame + 2 * surface.border.width
+        height: rows * cell + frame + 2 * surface.border.width
         anchor: toggle
         font: systray.popupFont
         theme: systray.theme
         backdropItem: surface
         // Keep the popup open during a drag or while an icon's app shows its menu.
         pinned: systray.dragging || tray.menuOpen
-        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: systray.popupOpenDuration; easing.type: Easing.OutCubic }
-        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: systray.popupCloseDuration; easing.type: Easing.InCubic }
+        enter: NumberAnimation { target: popup; property: "reveal"; to: 1; duration: systray.popupOpenDuration; easing.type: systray.theme.popup.openEasing }
+        exit: NumberAnimation { target: popup; property: "reveal"; to: 0; duration: systray.popupCloseDuration; easing.type: systray.theme.popup.closeEasing }
         onVisibleChanged: {
             if (!visible)
                 reveal = 0
         }
 
-        Rectangle {
+        PopupSurface {
             id: surface
 
             anchors.fill: parent
+            theme: systray.theme
+            reveal: popup.reveal
             radius: systray.popupRadius
             color: systray.popupColor
-            border.width: 1
             border.color: systray.popupBorderColor
-            opacity: popup.reveal
-            scale: 0.85 + popup.reveal * 0.15
             transformOrigin: systray.edge === "bottom" ? Item.Bottom : Item.Top
 
             DropArea {
                 id: unpinnedDrop
 
                 anchors.fill: parent
-                anchors.margins: 4
+                anchors.margins: 4 + surface.border.width
                 keys: [systray.mimeType]
                 onDropped: drop => systray.dropIcon(drop, false, unpinnedRepeater, unpinnedDrop, false)
 
