@@ -95,6 +95,15 @@ QtObject {
         property real pill
     }
 
+    // Sliders and switches in popups: how thick a slider's track is, how big its handle, and the ink outline and hard
+    // shadow a theme can give them; 0 draws none
+    component Control: QtObject {
+        property real trackHeight
+        property real handleSize
+        property real borderWidth
+        property real shadowOffset
+    }
+
     // Text roles in popups, each a whole font, so a theme can change its family, size, weight or capitalization
     component Type: QtObject {
         // Small print: sublabels, footers, weekdays
@@ -181,6 +190,13 @@ QtObject {
         sm: 4
         md: 8
         pill: 999
+    }
+
+    readonly property Control control: Control {
+        trackHeight: 4
+        handleSize: 18
+        borderWidth: 0
+        shadowOffset: 0
     }
 
     readonly property Type type: Type {

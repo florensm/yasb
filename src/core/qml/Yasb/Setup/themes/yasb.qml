@@ -87,6 +87,14 @@ Theme {
         pill: 999
     }
 
+    // Sliders and switches: the slider's track and handle, and an ink outline and hard shadow (0 for none)
+    control {
+        trackHeight: 4
+        handleSize: 18
+        borderWidth: 0
+        shadowOffset: 0
+    }
+
     // Text in popups: small print, normal text, a popup's title, and big numbers
     type {
         caption.family: popup.font.family

@@ -374,7 +374,8 @@ Item {
                         onClicked: audio.toggleMute()
                         Accessible.name: audio.muted ? "Unmute" : "Mute"
                     }
-                    Slider {
+                    PopupSlider {
+                        theme: volume.theme
                         Layout.fillWidth: true
                         from: 0
                         to: 100
@@ -488,7 +489,8 @@ Item {
                                             font: volume.popupSmallFont
                                         }
                                     }
-                                    Slider {
+                                    PopupSlider {
+                                        theme: volume.theme
                                         id: appSlider
                                         Layout.fillWidth: true
                                         Layout.leftMargin: -(leftPadding + handle.width / 2)

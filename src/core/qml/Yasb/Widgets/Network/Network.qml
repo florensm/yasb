@@ -572,7 +572,8 @@ Item {
                     }
 
                     // Follows the radio; Windows confirms each change.
-                    Switch {
+                    PopupSwitch {
+                        theme: network.theme
                         objectName: "wifiSwitch"
                         checkable: false
                         checked: wifi.enabled

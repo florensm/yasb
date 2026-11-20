@@ -93,6 +93,14 @@ Theme {
         pill: 0
     }
 
+    // Chunky blocks: a thick outlined track and a square handle with a hard shadow
+    control {
+        trackHeight: 10
+        handleSize: 18
+        borderWidth: 2
+        shadowOffset: 2
+    }
+
     type {
         caption.family: popup.font.family
         caption.pixelSize: 12
