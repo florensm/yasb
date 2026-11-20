@@ -7,6 +7,7 @@ Bluetooth 1.0 Bluetooth/Bluetooth.qml
 Brightness 1.0 Brightness/Brightness.qml
 Clock 1.0 Clock/Clock.qml
 Cpu 1.0 Cpu/Cpu.qml
+DesktopOverview 1.0 DesktopOverview/DesktopOverview.qml
 Dnd 1.0 Dnd/Dnd.qml
 Gpu 1.0 Gpu/Gpu.qml
 Language 1.0 Language/Language.qml

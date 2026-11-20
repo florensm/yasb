@@ -23,6 +23,7 @@ from core.config import ConfigError, load_config
 from core.qml_types import register_qml_types
 from core.services.media.art import MEDIA_ART_PROVIDER, MediaArtProvider
 from core.services.systray.systray import SYSTRAY_ICON_PROVIDER, SystrayIconProvider
+from core.services.windows_desktops.snapshots import DESKTOP_SNAPSHOT_PROVIDER, DesktopSnapshotProvider
 from core.utils.icons.image_provider import ICON_PROVIDER, IconImageProvider
 from core.utils.win32.composition import shutdown_composition
 from core.validation.config import YasbConfig
@@ -46,6 +47,7 @@ class YASBApplication(QGuiApplication):
         self._engine.addImageProvider(ICON_PROVIDER, IconImageProvider())
         self._engine.addImageProvider(MEDIA_ART_PROVIDER, MediaArtProvider())
         self._engine.addImageProvider(SYSTRAY_ICON_PROVIDER, SystrayIconProvider())
+        self._engine.addImageProvider(DESKTOP_SNAPSHOT_PROVIDER, DesktopSnapshotProvider())
         self._bars: BarManager | None = None
         self._tray: SystemTrayManager | None = None
         self._setup: Setup | None = None

@@ -52,6 +52,7 @@ from core.services.wallpapers.thumbnails import WallpaperThumbnail
 from core.services.weather.forecast import WeatherForecast
 from core.services.window_switcher.windows import WindowList
 from core.services.windows_desktops.desktops import VirtualDesktops
+from core.services.windows_desktops.snapshots import DesktopSnapshots
 from core.utils.environment import Environment
 from core.utils.hotkey import Hotkey
 
@@ -101,6 +102,7 @@ QML_TYPES: tuple[type[QObject], ...] = (
     AudioLevels,
     PowerSession,
     VirtualDesktops,
+    DesktopSnapshots,
     WallpaperLibrary,
     WallpaperThumbnail,
 )

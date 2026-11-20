@@ -32,6 +32,7 @@ class FakeDesktopService(QObject):
         self.desktops = [DesktopInfo(1, "a", ""), DesktopInfo(2, "b", " Work "), DesktopInfo(3, "c", "")]
         self.current = 1
         self.populated = {2}
+        self.top_windows: dict[int, int] = {}
         self.foreground: ForegroundView | None = ForegroundView(hwnd=11, pinned=False, app_pinned=True)
         self.calls: list[tuple[Any, ...]] = []
         self.widgets: list[QObject] = []
@@ -44,6 +45,9 @@ class FakeDesktopService(QObject):
 
     def get_populated_desktops(self) -> set[int]:
         return self.populated
+
+    def get_top_windows(self) -> dict[int, int]:
+        return self.top_windows
 
     def get_current_desktop(self) -> DesktopInfo:
         return next(desktop for desktop in self.desktops if desktop.number == self.current)
@@ -116,6 +120,16 @@ def test_desktops_current_and_populated_come_from_the_service(make_desktops: Cal
         (2, "Work", True),
         (3, "", False),
     ]
+
+
+def test_each_desktop_names_the_program_of_its_frontmost_window(
+    service: FakeDesktopService, make_desktops: Callable[[], VirtualDesktops], monkeypatch: pytest.MonkeyPatch
+):
+    service.top_windows = {2: 22, 3: 33}
+    names = {22: "WindowsTerminal.exe", 33: None}
+    monkeypatch.setattr(desktops_module, "get_process_info", lambda hwnd: {"name": names[hwnd], "pid": 1, "path": None})
+    desktops = make_desktops()
+    assert [d["app"] for d in desktops.property("desktops")] == ["", "WindowsTerminal", ""]
 
 
 def test_a_change_is_announced_only_when_something_changed(

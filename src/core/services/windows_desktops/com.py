@@ -323,18 +323,22 @@ class VirtualDesktopApi:
 
     def populated_guids(self) -> frozenset[str]:
         """GUIDs of desktops that have an Alt+Tab window of their own."""
-        guids: set[str] = set()
+        return frozenset(self.top_windows())
+
+    def top_windows(self) -> dict[str, int]:
+        """The frontmost Alt+Tab window of each desktop that has one, by desktop GUID, leaving out pinned ones."""
+        windows: dict[str, int] = {}
         for view in self.ensure().views.GetViewsByZOrder().iter(IApplicationView):
             try:
                 if not view.GetShowInSwitchers():
                     continue
                 guid = str(view.GetVirtualDesktopId())
-                if guid in guids or self.is_view_pinned(view) or self.is_app_pinned(view):
+                if guid in windows or self.is_view_pinned(view) or self.is_app_pinned(view):
                     continue
-                guids.add(guid)
+                windows[guid] = int(view.GetThumbnailWindow() or 0)
             except COMError:
                 continue
-        return frozenset(guids)
+        return windows
 
     def notification_service(self) -> Any:
         """Acquire the service that desktop change callbacks register with."""

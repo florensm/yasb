@@ -7,6 +7,7 @@ from PyQt6.QtCore import QObject, QUrl, pyqtSignal, pyqtSlot
 from core.services.windows_desktops.interfaces import TIER_21313
 from core.services.windows_desktops.service import SHELL_UNAVAILABLE, ForegroundView, WindowsDesktopService
 from core.utils.qml import qml_property
+from core.utils.win32.utils import get_process_info
 
 
 class VirtualDesktops(QObject):
@@ -31,9 +32,15 @@ class VirtualDesktops(QObject):
 
     def _read(self) -> bool:
         populated = self._service.get_populated_desktops()
+        top_windows = self._service.get_top_windows()
         current = self._service.get_current_desktop().number
         desktops = [
-            {"number": desktop.number, "name": desktop.name.strip(), "populated": desktop.number in populated}
+            {
+                "number": desktop.number,
+                "name": desktop.name.strip(),
+                "populated": desktop.number in populated,
+                "app": _app_name(top_windows.get(desktop.number, 0)),
+            }
             for desktop in self._service.get_desktops()
         ]
         if desktops == self._desktops and current == self._current:
@@ -45,7 +52,8 @@ class VirtualDesktops(QObject):
         if self._read():
             self.desktopsChanged.emit()
 
-    # [{number, name, populated}], numbered from 1 in Task View's order; name is "" until the desktop is renamed
+    # [{number, name, populated, app}], numbered from 1 in Task View's order; name is "" until the desktop is renamed,
+    # app is the program of the desktop's frontmost window without ".exe", or "" when it has none
     @qml_property("QVariantList", notify=desktopsChanged)
     def desktops(self) -> list[dict[str, Any]]:
         return self._desktops
@@ -149,3 +157,10 @@ class VirtualDesktops(QObject):
     @pyqtSlot(QUrl)
     def setWallpaperAll(self, image: QUrl) -> None:
         self._call("set the wallpaper of every desktop", self._service.set_wallpaper_all, image.toLocalFile())
+
+
+def _app_name(hwnd: int) -> str:
+    if not hwnd:
+        return ""
+    name = get_process_info(hwnd)["name"] or ""
+    return name[:-4] if name.lower().endswith(".exe") else name

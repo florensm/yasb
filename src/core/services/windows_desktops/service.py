@@ -175,6 +175,8 @@ class WindowsDesktopService(QObject):
         self._desktops: list[DesktopInfo] = []
         self._current_guid: str | None = None
         self._populated: frozenset[str] = frozenset()
+        # The frontmost window of each populated desktop, by GUID
+        self._top_windows: dict[str, int] = {}
 
         # One user action can produce several notifications: switching desktops
         # also reports a wallpaper change and a switch. These collect what needs
@@ -253,12 +255,13 @@ class WindowsDesktopService(QObject):
 
     def _refresh_populated(self) -> None:
         try:
-            populated = self._api.populated_guids()
+            top_windows = self._api.top_windows()
         except SHELL_UNAVAILABLE:
             logger.debug("Could not read which desktops have windows", exc_info=True)
             return
-        if populated != self._populated:
-            self._populated = populated
+        if top_windows != self._top_windows:
+            self._top_windows = top_windows
+            self._populated = frozenset(top_windows)
             self.populated_changed.emit()
 
     def _resolve(self, number: int) -> DesktopInfo:
@@ -451,6 +454,13 @@ class WindowsDesktopService(QObject):
     def get_populated_desktops() -> set[int]:
         service = WindowsDesktopService()
         return {d.number for d in service._desktops if d.guid in service._populated}
+
+    @staticmethod
+    def get_top_windows() -> dict[int, int]:
+        """The frontmost Alt+Tab window of each desktop that has one, by desktop number."""
+        service = WindowsDesktopService()
+        windows = service._top_windows
+        return {d.number: windows[d.guid] for d in service._desktops if d.guid in windows}
 
     @staticmethod
     def get_current_desktop() -> DesktopInfo:
