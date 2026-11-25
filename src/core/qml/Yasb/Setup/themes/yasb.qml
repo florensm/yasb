@@ -47,7 +47,7 @@ Theme {
         // Widget labels on the bar
         font.family: "Segoe UI"
         font.pixelSize: 13
-        // Widget icons, on the bar and in popups
+        // Widget icons on the bar
         iconFont.family: "Segoe Fluent Icons"
         iconFont.pixelSize: 16
     }
@@ -77,6 +77,8 @@ Theme {
         closeEasing: Easing.InCubic
         openScale: 0.85
         font.family: "Segoe UI"
+        // Icons in popups
+        iconFont.family: "Segoe Fluent Icons"
     }
 
     // Corners in popups: chips, rows and buttons, cards, and circles. Set them all to 0 for square corners

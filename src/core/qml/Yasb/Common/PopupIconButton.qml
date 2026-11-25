@@ -13,11 +13,11 @@ Item {
     property bool checked: false
     property string tip
     property color color: theme.colors.text
-    // The theme's icon font, each part unless set here
+    // The theme's popup icon font, each part unless set here
     property font iconFont
-    iconFont.family: theme.bar.iconFont.family
-    iconFont.weight: theme.bar.iconFont.weight
-    iconFont.variableAxes: theme.bar.iconFont.variableAxes
+    iconFont.family: theme.popup.iconFont.family
+    iconFont.weight: theme.popup.iconFont.weight
+    iconFont.variableAxes: theme.popup.iconFont.variableAxes
     readonly property bool hovered: area.containsMouse
 
     signal clicked

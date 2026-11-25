@@ -4,6 +4,7 @@ AboutWindow 1.0 AboutWindow.qml
 AlertDialog 1.0 AlertDialog.qml
 BackdropPopup 1.0 BackdropPopup.qml
 LoadingLine 1.0 LoadingLine.qml
+MarkdownView 1.0 MarkdownView.qml
 PopupCard 1.0 PopupCard.qml
 PopupFooter 1.0 PopupFooter.qml
 PopupHeader 1.0 PopupHeader.qml

@@ -12,6 +12,12 @@ Rectangle {
     property font font: theme.type.caption
     // The popup's corner radius, so the fill follows the popup's bottom corners
     property real popupRadius: theme.popup.radius
+    // The arrow on the right, in the theme's popup icon font unless set here
+    property string arrow: "\ue76c"
+    property font arrowFont
+    arrowFont.family: theme.popup.iconFont.family
+    arrowFont.weight: theme.popup.iconFont.weight
+    arrowFont.variableAxes: theme.popup.iconFont.variableAxes
     property int arrowSize: 10
     readonly property bool hovered: area.containsMouse
 
@@ -51,12 +57,12 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        text: ""
+        text: footer.arrow
         color: footer.theme.colors.text
         opacity: footer.hovered ? 1 : 0.75
-        font.family: footer.theme.bar.iconFont.family
-        font.weight: footer.theme.bar.iconFont.weight
-        font.variableAxes: footer.theme.bar.iconFont.variableAxes
+        font.family: footer.arrowFont.family
+        font.weight: footer.arrowFont.weight
+        font.variableAxes: footer.arrowFont.variableAxes
         font.pixelSize: footer.arrowSize
     }
 

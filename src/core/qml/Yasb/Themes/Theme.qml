@@ -84,6 +84,8 @@ QtObject {
         property real openScale
         // Only its family is used: each widget sets the sizes and weights of its own popup text
         property font font
+        // Icons in popups; each widget sets their sizes
+        property font iconFont
     }
 
     // Corner radii in popups, from small to round: chips and marks, rows and buttons, cards, and circles such as
@@ -183,6 +185,7 @@ QtObject {
         closeEasing: Easing.InCubic
         openScale: 0.85
         font.family: "Segoe UI"
+        iconFont.family: "Segoe Fluent Icons"
     }
 
     readonly property Radius radius: Radius {

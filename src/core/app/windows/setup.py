@@ -30,6 +30,7 @@ from core.utils.shell_utils import shell_open
 from core.utils.validation_errors import format_pydantic_errors_to_yaml
 from core.utils.win32.autostart import AUTOSTART_FILE, disable_autostart, enable_autostart
 from core.utils.win32.composition import host_backdrop_supported
+from core.widget_files import builtin_manifests
 from settings import APP_ICON, APP_NAME, WEBSITE_DOCS_URL
 
 
@@ -109,6 +110,10 @@ class Setup(QObject):
     @qml_property(str, constant=True)
     def themeName(self) -> str:
         return THEME_NAME
+
+    @qml_property("QVariantMap", constant=True)
+    def manifests(self) -> dict[str, Any]:
+        return builtin_manifests()
 
     @pyqtSlot("QVariantMap", result="QString")
     def finish(self, choices: dict[str, Any]) -> str:
