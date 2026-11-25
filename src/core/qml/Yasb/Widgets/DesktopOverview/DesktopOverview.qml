@@ -4,14 +4,18 @@ import Yasb
 import Yasb.Bar
 import Yasb.Themes
 
-// An overview of the virtual desktops: a curved panorama to turn through, or a grid, opened from the bar or a hotkey.
-// Windows draws nothing for a desktop out of view, so each card shows the screen as it last looked on that desktop.
+// An overview of the virtual desktops or GlazeWM's workspaces: a curved panorama to turn through, or a grid, opened
+// from the bar or a hotkey. Windows draws nothing for a desktop or workspace out of view, so each card shows the
+// screen as it last looked there.
 Item {
     id: overview
 
     component Settings: QtObject {
         required property Theme theme
 
+        // windows or glazewm: Windows' virtual desktops, or the workspaces GlazeWM shows on this screen's monitor
+        property string source: "windows"
+        property string glazewmServerUri: "ws://localhost:6123"
         property string hotkey: "alt+grave"
         // active, cursor or primary: which screen's widget opens on the hotkey
         property string hotkeyScreen: "active"
@@ -56,6 +60,10 @@ Item {
 
     // Held so the garbage collector doesn't destroy the open overview
     property Window opened: null
+    // The desktops or workspaces, from settings.source
+    readonly property OverviewSource model: modelLoader.item as OverviewSource
+    // Keys whose pictures no longer show what is there, hidden until taken again
+    property var stalePictures: ({})
     // A point on this widget's screen, which is where pictures are taken and the overview opens
     readonly property point screenPoint: Qt.point(Screen.virtualX + 1, Screen.virtualY + 1)
 
@@ -66,12 +74,16 @@ Item {
     Accessible.onPressAction: toggle()
 
     function capture() {
-        if (desktops.current > 0 && !opened)
-            snapshots.capture(desktops.current, screenPoint.x, screenPoint.y)
+        const key = model?.currentKey ?? 0
+        if (key > 0 && !opened && snapshots.capture(key, screenPoint.x, screenPoint.y) && stalePictures[key]) {
+            const stale = Object.assign({}, stalePictures)
+            delete stale[key]
+            stalePictures = stale
+        }
     }
 
-    function snapshotUrl(number: int): string {
-        return snapshots.url(number, screenPoint.x, screenPoint.y, snapshots.revision)
+    function snapshotUrl(key: int): string {
+        return stalePictures[key] ? "" : snapshots.url(key, screenPoint.x, screenPoint.y, snapshots.revision)
     }
 
     function toggle() {
@@ -82,7 +94,7 @@ Item {
     }
 
     function open(startMode: string) {
-        if (opened)
+        if (opened || !model || model.cards.length === 0)
             return
         // Taken before the overview covers the screen
         capture()
@@ -93,24 +105,40 @@ Item {
         })
     }
 
-    VirtualDesktops {
-        id: desktops
+    Loader {
+        id: modelLoader
 
-        property int lastCurrent: 0
-        property int lastCount: 0
+        sourceComponent: overview.settings.source === "glazewm" ? glazewmSource : windowsSource
+    }
 
-        onDesktopsChanged: {
-            // Deleting a desktop renumbers the ones after it, so their pictures would land on the wrong cards
-            if (desktops.desktops.length !== lastCount) {
-                if (lastCount > 0)
-                    snapshots.forget()
-                lastCount = desktops.desktops.length
-            }
-            if (current !== lastCurrent) {
-                lastCurrent = current
-                // After Windows' own slide has finished
-                settle.restart()
-            }
+    Component {
+        id: windowsSource
+
+        WindowsDesktopsSource {}
+    }
+
+    Component {
+        id: glazewmSource
+
+        GlazewmSource {
+            screenName: overview.bar.screenName
+            serverUri: overview.settings.glazewmServerUri
+        }
+    }
+
+    Connections {
+        target: overview.model
+
+        function onCurrentKeyChanged() {
+            // After the switch's own animation has finished
+            settle.restart()
+        }
+
+        function onStale(keys: list<int>) {
+            const stale = Object.assign({}, overview.stalePictures)
+            for (const key of keys)
+                stale[key] = true
+            overview.stalePictures = stale
         }
     }
 
@@ -156,6 +184,31 @@ Item {
             ? (overview.settings.mode === "grid" ? "panorama" : "grid") : overview.settings.mode)
     }
 
+    // The icons of the apps open on a card
+    component AppIcons: Row {
+        id: appIcons
+
+        required property var sources
+        property int size: 16
+
+        spacing: 4
+        visible: sources.length > 0
+
+        Repeater {
+            model: appIcons.sources
+
+            Image {
+                required property string modelData
+
+                width: appIcons.size
+                height: appIcons.size
+                sourceSize: Qt.size(appIcons.size * 2, appIcons.size * 2)
+                source: modelData
+                asynchronous: true
+            }
+        }
+    }
+
     // One desktop's picture with its frame, as flat as it is before the panorama bends it
     component CardFace: Item {
         id: face
@@ -163,7 +216,7 @@ Item {
         required property var desktop
         required property bool selected
         required property real margin
-        property string source: overview.snapshotUrl(desktop.number)
+        property string source: overview.snapshotUrl(desktop.key)
 
         RectangularShadow {
             anchors.fill: frame
@@ -200,7 +253,7 @@ Item {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: face.desktop.name || qsTr("Desktop %1").arg(face.desktop.number)
+                    text: face.desktop.title
                     color: Qt.alpha(overview.settings.overviewColor, 0.6)
                     font.family: overview.settings.font.family
                     font.pixelSize: Math.max(14, frame.height / 14)
@@ -234,10 +287,14 @@ Item {
 
             required property rect area
             property string viewMode: "panorama"
-            readonly property var list: desktops.desktops
+            readonly property var list: overview.model?.cards ?? []
             readonly property int count: list.length
-            readonly property int currentIndex: Math.max(0, list.findIndex(d => d.number === desktops.current))
+            readonly property int currentKey: overview.model?.currentKey ?? 0
+            readonly property int currentIndex: Math.max(0, list.findIndex(card => card.key === currentKey))
             readonly property bool ring: overview.settings.wrap && count >= 3
+            readonly property bool canCreate: overview.model?.canCreate ?? false
+            readonly property int gridColumns: Math.max(1,
+                Math.min(overview.settings.gridColumns, count + (canCreate ? 1 : 0)))
             // The desktop in front or under the keyboard, from 0
             property int selected: currentIndex
             // The panorama's turn, in cards from the first; past the last card it goes on round the ring
@@ -295,10 +352,10 @@ Item {
             }
 
             function finish() {
-                const target = list[selected]?.number ?? 0
-                if (target && target !== desktops.current)
-                    desktops.switchTo(target)
-                // Covers Windows' own slide when switching, then gets out of the way
+                const card = list[selected]
+                if (card && card.key !== currentKey)
+                    overview.model?.switchRequested(card)
+                // Covers the switch's own animation, then gets out of the way
                 closeLater.start()
             }
 
@@ -365,7 +422,8 @@ Item {
                 id: zoomIn
 
                 PauseAnimation {
-                    duration: Math.abs(view.turn - view.turnTarget) > 0.01 ? overview.settings.animationDuration * 0.6 : 0
+                    duration: Math.abs(view.turn - view.turnTarget) > 0.01
+                        ? overview.settings.animationDuration * 0.6 : 0
                 }
                 ParallelAnimation {
                     NumberAnimation {
@@ -406,7 +464,7 @@ Item {
             Timer {
                 id: closeLater
 
-                interval: view.list[view.selected]?.number === desktops.current ? 0 : 350
+                interval: view.list[view.selected]?.key === view.currentKey ? 0 : overview.model?.switchCover ?? 0
                 onTriggered: fade.start()
             }
 
@@ -430,7 +488,7 @@ Item {
                     id: backdrop
 
                     anchors.fill: parent
-                    source: overview.snapshotUrl(desktops.current)
+                    source: overview.snapshotUrl(view.currentKey)
                     // Small, so the blur goes further for less
                     sourceSize: Qt.size(Math.round(width / 6), Math.round(height / 6))
                     fillMode: Image.PreserveAspectCrop
@@ -447,7 +505,7 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     color: "#000000"
-                    opacity: view.reveal * (view.viewMode === "panorama" ? overview.settings.dim : overview.settings.dim * 0.45)
+                    opacity: view.reveal * overview.settings.dim * (view.viewMode === "panorama" ? 1 : 0.45)
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -478,8 +536,8 @@ Item {
                     Keys.onSpacePressed: view.go(view.selected)
                     Keys.onLeftPressed: view.select(view.selected - 1)
                     Keys.onRightPressed: view.select(view.selected + 1)
-                    Keys.onUpPressed: view.select(view.selected - (view.viewMode === "grid" ? gridColumns() : 1))
-                    Keys.onDownPressed: view.select(view.selected + (view.viewMode === "grid" ? gridColumns() : 1))
+                    Keys.onUpPressed: view.select(view.selected - (view.viewMode === "grid" ? view.gridColumns : 1))
+                    Keys.onDownPressed: view.select(view.selected + (view.viewMode === "grid" ? view.gridColumns : 1))
                     Keys.onTabPressed: view.toggleMode()
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_G) {
@@ -496,10 +554,6 @@ Item {
                             return
                         }
                         event.accepted = true
-                    }
-
-                    function gridColumns(): int {
-                        return Math.max(1, Math.min(overview.settings.gridColumns, view.count + 1))
                     }
                 }
 
@@ -647,7 +701,7 @@ Item {
 
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: card.modelData.number
+                                        text: card.modelData.label
                                         color: overview.settings.accent
                                         font.family: overview.settings.font.family
                                         font.pixelSize: 26
@@ -656,12 +710,19 @@ Item {
 
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: [card.modelData.name, card.modelData.app,
-                                            card.modelData.number === desktops.current ? qsTr("here") : ""]
+                                        text: [card.modelData.name, card.modelData.detail,
+                                            card.modelData.key === view.currentKey ? qsTr("here") : ""]
                                             .filter(part => part).join(" · ")
                                         color: Qt.alpha(overview.settings.overviewColor, 0.6)
                                         font.family: overview.settings.font.family
                                         font.pixelSize: 12
+                                    }
+
+                                    AppIcons {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        topPadding: 4
+                                        sources: card.modelData.icons
+                                        size: 18
                                     }
                                 }
                             }
@@ -724,9 +785,9 @@ Item {
                 Item {
                     id: dock
 
-                    readonly property int columns: Math.max(1, Math.min(overview.settings.gridColumns, view.count + 1))
+                    readonly property int columns: view.gridColumns
                     readonly property real tileWidth: Math.min(width * 0.56 / columns, 260)
-                    readonly property real tileHeight: tileWidth * height / width
+                    readonly property real tileHeight: width > 0 ? tileWidth * height / width : 0
                     readonly property real spacing: 8
 
                     // A click outside the tiles closes
@@ -798,8 +859,8 @@ Item {
 
                                     required property var modelData
                                     required property int index
-                                    readonly property string source: overview.snapshotUrl(modelData.number)
-                                    readonly property bool current: modelData.number === desktops.current
+                                    readonly property string source: overview.snapshotUrl(modelData.key)
+                                    readonly property bool current: modelData.key === view.currentKey
 
                                     width: dock.tileWidth
                                     height: dock.tileHeight
@@ -823,7 +884,7 @@ Item {
                                     Text {
                                         anchors.centerIn: parent
                                         visible: tile.source === ""
-                                        text: tile.modelData.name || qsTr("WS %1").arg(tile.modelData.number)
+                                        text: tile.modelData.title
                                         color: Qt.alpha(overview.settings.overviewColor, 0.45)
                                         font.family: overview.settings.font.family
                                         font.pixelSize: 11
@@ -841,15 +902,27 @@ Item {
                                         radius: 3
                                         color: Qt.alpha("#000000", 0.6)
 
-                                        Text {
+                                        Row {
                                             id: caption
 
                                             anchors.centerIn: parent
-                                            text: [tile.modelData.number, tile.modelData.app]
-                                                .filter(part => part).join(" · ")
-                                            color: tile.current ? overview.settings.accent : overview.settings.overviewColor
-                                            font.family: overview.settings.font.family
-                                            font.pixelSize: 10
+                                            spacing: 4
+
+                                            AppIcons {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                sources: tile.modelData.icons
+                                                size: 12
+                                            }
+
+                                            Text {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: [tile.modelData.label, tile.modelData.detail]
+                                                    .filter(part => part).join(" · ")
+                                                color: tile.current ? overview.settings.accent
+                                                    : overview.settings.overviewColor
+                                                font.family: overview.settings.font.family
+                                                font.pixelSize: 10
+                                            }
                                         }
                                     }
 
@@ -867,12 +940,14 @@ Item {
 
                             // A new desktop
                             Rectangle {
+                                visible: view.canCreate
                                 width: dock.tileWidth
                                 height: dock.tileHeight
                                 radius: 4
                                 color: addArea.containsMouse ? Qt.alpha(overview.settings.accent, 0.1) : "transparent"
                                 border.width: 1
-                                border.color: Qt.alpha(overview.settings.overviewColor, addArea.containsMouse ? 0.3 : 0.12)
+                                border.color: Qt.alpha(overview.settings.overviewColor,
+                                    addArea.containsMouse ? 0.3 : 0.12)
 
                                 Text {
                                     anchors.centerIn: parent
@@ -888,7 +963,7 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: desktops.create()
+                                    onClicked: overview.model?.createRequested()
                                 }
                             }
                         }
