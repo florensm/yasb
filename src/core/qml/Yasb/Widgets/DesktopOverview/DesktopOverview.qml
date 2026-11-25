@@ -1,56 +1,66 @@
 import QtQuick
 import QtQuick.Effects
 import Yasb
+import Yasb.Bar
+import Yasb.Themes
 
 // An overview of the virtual desktops: a curved panorama to turn through, or a grid, opened from the bar or a hotkey.
 // Windows draws nothing for a desktop out of view, so each card shows the screen as it last looked on that desktop.
 Item {
     id: overview
 
-    property Item bar: null
-    property string hotkey: "alt+grave"
-    // active, cursor or primary: which screen's widget opens on the hotkey
-    property string hotkeyScreen: "active"
-    // panorama or grid: how the overview opens; G or Tab switches while it is open
-    property string mode: "panorama"
-    // The colour of the frames, their glow and the desktop numbers
-    property color accent: "#4fd1a5"
-    property bool glow: true
-    // How wide the card in front is, as a share of the screen's width
-    property real cardSize: 0.52
-    // How strongly the panorama bends around you, 0 for flat
-    property real curvature: 0.8
-    // Turn past the last desktop to reach the first, with three or more desktops
-    property bool wrap: true
-    property int gridColumns: 5
-    // How often to retake the picture of the desktop in view, in milliseconds, 0 to take it only when the
-    // overview opens and a moment after each switch. The pictures stay in memory only.
-    property int snapshotInterval: 5000
-    // How dark the screen gets behind the panorama, 0 to 1
-    property real dim: 0.55
-    property int animationDuration: 380
-    // The glyph on the bar, drawn in iconFont and the text colour
-    property string icon: ""
-    property int iconSize: 16
+    component Settings: QtObject {
+        required property Theme theme
 
-    readonly property bool dark: bar ? bar.dark : Qt.styleHints.colorScheme === Qt.ColorScheme.Dark
-    property color textColor: bar?.textColor ?? (dark ? "#ffffff" : "#000000")
-    // Text on the overview, which is always over a darkened screen
-    property color overviewColor: "#e8ece9"
-    property font font
-    font.family: bar?.font.family ?? Qt.application.font.family
-    font.pixelSize: bar?.font.pixelSize ?? 13
-    property font iconFont
-    iconFont.family: bar?.iconFont?.family ?? "Segoe Fluent Icons"
-    iconFont.weight: bar?.iconFont?.weight ?? Font.Normal
+        property string hotkey: "alt+grave"
+        // active, cursor or primary: which screen's widget opens on the hotkey
+        property string hotkeyScreen: "active"
+        // panorama or grid: how the overview opens; G or Tab switches while it is open
+        property string mode: "panorama"
+        // The colour of the frames, their glow and the desktop numbers
+        property color accent: "#4fd1a5"
+        property bool glow: true
+        // How wide the card in front is, as a share of the screen's width
+        property real cardSize: 0.52
+        // How strongly the panorama bends around you, 0 for flat
+        property real curvature: 0.8
+        // Turn past the last desktop to reach the first, with three or more desktops
+        property bool wrap: true
+        property int gridColumns: 5
+        // How often to retake the picture of the desktop in view, in milliseconds, 0 to take it only when the
+        // overview opens and a moment after each switch. The pictures stay in memory only.
+        property int snapshotInterval: 5000
+        // How dark the screen gets behind the panorama, 0 to 1
+        property real dim: 0.55
+        property int animationDuration: 380
+        // The glyph on the bar, in iconFont and textColor
+        property string icon: ""
+        property int iconSize: theme.bar.iconFont.pixelSize
+        property color textColor: theme.colors.text
+        // Glyphs take the theme's icon font, each part unless the widget file sets it
+        property font iconFont
+        iconFont.family: theme.bar.iconFont.family
+        iconFont.weight: theme.bar.iconFont.weight
+        iconFont.variableAxes: theme.bar.iconFont.variableAxes
+        // Text on the overview, which is always over a darkened screen; of font, only the family is used
+        property color overviewColor: "#e8ece9"
+        property font font
+        font.family: theme.popup.font.family
+    }
+
+    required property BarBase bar
+    readonly property Theme theme: bar.theme
+    readonly property Settings settings: Settings {
+        theme: overview.theme
+    }
 
     // Held so the garbage collector doesn't destroy the open overview
     property Window opened: null
     // A point on this widget's screen, which is where pictures are taken and the overview opens
     readonly property point screenPoint: Qt.point(Screen.virtualX + 1, Screen.virtualY + 1)
 
-    implicitWidth: iconSize
-    implicitHeight: iconSize
+    implicitWidth: settings.iconSize
+    implicitHeight: settings.iconSize
     Accessible.role: Accessible.Button
     Accessible.name: qsTr("Desktop overview")
     Accessible.onPressAction: toggle()
@@ -68,7 +78,7 @@ Item {
         if (opened)
             opened.back()
         else
-            open(mode)
+            open(settings.mode)
     }
 
     function open(startMode: string) {
@@ -109,8 +119,8 @@ Item {
     }
 
     Hotkey {
-        keys: overview.hotkey
-        screen: overview.hotkeyScreen
+        keys: overview.settings.hotkey
+        screen: overview.settings.hotkeyScreen
         onActivated: overview.toggle()
     }
 
@@ -122,19 +132,20 @@ Item {
     }
 
     Timer {
-        interval: Math.max(overview.snapshotInterval, 500)
-        running: overview.snapshotInterval > 0 && !overview.opened
+        interval: Math.max(overview.settings.snapshotInterval, 500)
+        running: overview.settings.snapshotInterval > 0 && !overview.opened
         repeat: true
         onTriggered: overview.capture()
     }
 
     Text {
         anchors.centerIn: parent
-        text: overview.icon
-        color: overview.textColor
-        font.family: overview.iconFont.family
-        font.weight: overview.iconFont.weight
-        font.pixelSize: overview.iconSize
+        text: overview.settings.icon
+        color: overview.settings.textColor
+        font.family: overview.settings.iconFont.family
+        font.weight: overview.settings.iconFont.weight
+        font.variableAxes: overview.settings.iconFont.variableAxes
+        font.pixelSize: overview.settings.iconSize
     }
 
     MouseArea {
@@ -142,7 +153,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: mouse => overview.open(mouse.button === Qt.RightButton
-            ? (overview.mode === "grid" ? "panorama" : "grid") : overview.mode)
+            ? (overview.settings.mode === "grid" ? "panorama" : "grid") : overview.settings.mode)
     }
 
     // One desktop's picture with its frame, as flat as it is before the panorama bends it
@@ -156,11 +167,11 @@ Item {
 
         RectangularShadow {
             anchors.fill: frame
-            visible: overview.glow
+            visible: overview.settings.glow
             radius: frame.radius
             blur: face.margin * 0.8
             spread: 1
-            color: Qt.alpha(overview.accent, face.selected ? 0.75 : 0.3)
+            color: Qt.alpha(overview.settings.accent, face.selected ? 0.75 : 0.3)
         }
 
         Rectangle {
@@ -190,8 +201,8 @@ Item {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: face.desktop.name || qsTr("Desktop %1").arg(face.desktop.number)
-                    color: Qt.alpha(overview.overviewColor, 0.6)
-                    font.family: overview.font.family
+                    color: Qt.alpha(overview.settings.overviewColor, 0.6)
+                    font.family: overview.settings.font.family
                     font.pixelSize: Math.max(14, frame.height / 14)
                     font.weight: Font.DemiBold
                 }
@@ -199,8 +210,8 @@ Item {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: face.desktop.populated ? qsTr("Visit once to see it here") : qsTr("Empty")
-                    color: Qt.alpha(overview.overviewColor, 0.35)
-                    font.family: overview.font.family
+                    color: Qt.alpha(overview.settings.overviewColor, 0.35)
+                    font.family: overview.settings.font.family
                     font.pixelSize: Math.max(11, frame.height / 26)
                 }
             }
@@ -210,7 +221,7 @@ Item {
                 radius: parent.radius
                 color: "transparent"
                 border.width: 2
-                border.color: face.selected ? overview.accent : Qt.alpha(overview.accent, 0.55)
+                border.color: face.selected ? overview.settings.accent : Qt.alpha(overview.settings.accent, 0.55)
             }
         }
     }
@@ -226,7 +237,7 @@ Item {
             readonly property var list: desktops.desktops
             readonly property int count: list.length
             readonly property int currentIndex: Math.max(0, list.findIndex(d => d.number === desktops.current))
-            readonly property bool ring: overview.wrap && count >= 3
+            readonly property bool ring: overview.settings.wrap && count >= 3
             // The desktop in front or under the keyboard, from 0
             property int selected: currentIndex
             // The panorama's turn, in cards from the first; past the last card it goes on round the ring
@@ -325,7 +336,7 @@ Item {
             Behavior on turn {
                 enabled: !view.dragging
                 NumberAnimation {
-                    duration: overview.animationDuration
+                    duration: overview.settings.animationDuration
                     easing.type: Easing.OutCubic
                 }
             }
@@ -338,14 +349,14 @@ Item {
                     property: "zoom"
                     from: view.viewMode === "panorama" ? 0 : 1
                     to: 1
-                    duration: overview.animationDuration
+                    duration: overview.settings.animationDuration
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: view
                     property: "reveal"
                     to: 1
-                    duration: overview.animationDuration
+                    duration: overview.settings.animationDuration
                     easing.type: Easing.OutCubic
                 }
             }
@@ -354,21 +365,21 @@ Item {
                 id: zoomIn
 
                 PauseAnimation {
-                    duration: Math.abs(view.turn - view.turnTarget) > 0.01 ? overview.animationDuration * 0.6 : 0
+                    duration: Math.abs(view.turn - view.turnTarget) > 0.01 ? overview.settings.animationDuration * 0.6 : 0
                 }
                 ParallelAnimation {
                     NumberAnimation {
                         target: view
                         property: "zoom"
                         to: 0
-                        duration: overview.animationDuration
+                        duration: overview.settings.animationDuration
                         easing.type: Easing.InOutCubic
                     }
                     NumberAnimation {
                         target: view
                         property: "reveal"
                         to: 0
-                        duration: overview.animationDuration
+                        duration: overview.settings.animationDuration
                         easing.type: Easing.InCubic
                     }
                 }
@@ -384,7 +395,7 @@ Item {
                     target: view
                     property: "reveal"
                     to: 0
-                    duration: overview.animationDuration * 0.6
+                    duration: overview.settings.animationDuration * 0.6
                     easing.type: Easing.InCubic
                 }
                 ScriptAction {
@@ -436,7 +447,7 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     color: "#000000"
-                    opacity: view.reveal * (view.viewMode === "panorama" ? overview.dim : overview.dim * 0.45)
+                    opacity: view.reveal * (view.viewMode === "panorama" ? overview.settings.dim : overview.settings.dim * 0.45)
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -488,7 +499,7 @@ Item {
                     }
 
                     function gridColumns(): int {
-                        return Math.max(1, Math.min(overview.gridColumns, view.count + 1))
+                        return Math.max(1, Math.min(overview.settings.gridColumns, view.count + 1))
                     }
                 }
 
@@ -512,15 +523,15 @@ Item {
 
                             Text {
                                 text: parent.modelData[0]
-                                color: overview.accent
-                                font.family: overview.font.family
+                                color: overview.settings.accent
+                                font.family: overview.settings.font.family
                                 font.pixelSize: 12
                             }
 
                             Text {
                                 text: parent.modelData[1]
-                                color: overview.overviewColor
-                                font.family: overview.font.family
+                                color: overview.settings.overviewColor
+                                font.family: overview.settings.font.family
                                 font.pixelSize: 12
                             }
                         }
@@ -536,13 +547,13 @@ Item {
 
                     // The front card's picture and frame, before bending
                     readonly property real margin: Math.round(width * 0.012)
-                    readonly property real cardWidth: width * overview.cardSize
+                    readonly property real cardWidth: width * overview.settings.cardSize
                     readonly property real faceWidth: cardWidth + 2 * margin
                     readonly property real faceHeight: cardWidth * height / width + 2 * margin
                     readonly property real gap: cardWidth * 0.1
                     readonly property real pitch: faceWidth + gap
                     // The cylinder the cards sit on, seen from its axis; it flattens while zooming in
-                    readonly property real radius: cardWidth / Math.max(0.05, overview.curvature)
+                    readonly property real radius: cardWidth / Math.max(0.05, overview.settings.curvature)
                         / Math.max(0.001, view.zoom)
                     readonly property real centerX: width / 2
                     readonly property real centerY: height * (0.5 - 0.04 * view.zoom)
@@ -637,8 +648,8 @@ Item {
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
                                         text: card.modelData.number
-                                        color: overview.accent
-                                        font.family: overview.font.family
+                                        color: overview.settings.accent
+                                        font.family: overview.settings.font.family
                                         font.pixelSize: 26
                                         font.weight: Font.DemiBold
                                     }
@@ -648,8 +659,8 @@ Item {
                                         text: [card.modelData.name, card.modelData.app,
                                             card.modelData.number === desktops.current ? qsTr("here") : ""]
                                             .filter(part => part).join(" · ")
-                                        color: Qt.alpha(overview.overviewColor, 0.6)
-                                        font.family: overview.font.family
+                                        color: Qt.alpha(overview.settings.overviewColor, 0.6)
+                                        font.family: overview.settings.font.family
                                         font.pixelSize: 12
                                     }
                                 }
@@ -713,7 +724,7 @@ Item {
                 Item {
                     id: dock
 
-                    readonly property int columns: Math.max(1, Math.min(overview.gridColumns, view.count + 1))
+                    readonly property int columns: Math.max(1, Math.min(overview.settings.gridColumns, view.count + 1))
                     readonly property real tileWidth: Math.min(width * 0.56 / columns, 260)
                     readonly property real tileHeight: tileWidth * height / width
                     readonly property real spacing: 8
@@ -738,7 +749,7 @@ Item {
                             anchors.fill: parent
                             radius: 10
                             color: Qt.alpha("#101513", 0.82)
-                            border.color: Qt.alpha(overview.overviewColor, 0.08)
+                            border.color: Qt.alpha(overview.settings.overviewColor, 0.08)
                         }
 
                         // Switches back to the panorama
@@ -749,7 +760,7 @@ Item {
                             width: modeLabel.implicitWidth + 16
                             height: modeLabel.implicitHeight + 8
                             radius: 5
-                            color: modeArea.containsMouse ? Qt.alpha(overview.overviewColor, 0.14)
+                            color: modeArea.containsMouse ? Qt.alpha(overview.settings.overviewColor, 0.14)
                                 : Qt.alpha("#101513", 0.82)
 
                             Text {
@@ -757,8 +768,8 @@ Item {
 
                                 anchors.centerIn: parent
                                 text: qsTr("panorama ▾")
-                                color: overview.overviewColor
-                                font.family: overview.font.family
+                                color: overview.settings.overviewColor
+                                font.family: overview.settings.font.family
                                 font.pixelSize: 11
                             }
 
@@ -795,9 +806,9 @@ Item {
                                     radius: 4
                                     color: Qt.alpha("#ffffff", 0.04)
                                     border.width: tile.index === view.selected || tileArea.containsMouse ? 2 : 1
-                                    border.color: tile.index === view.selected ? overview.accent
-                                        : tileArea.containsMouse ? Qt.alpha(overview.accent, 0.6)
-                                        : Qt.alpha(overview.overviewColor, 0.12)
+                                    border.color: tile.index === view.selected ? overview.settings.accent
+                                        : tileArea.containsMouse ? Qt.alpha(overview.settings.accent, 0.6)
+                                        : Qt.alpha(overview.settings.overviewColor, 0.12)
 
                                     Image {
                                         anchors.fill: parent
@@ -813,8 +824,8 @@ Item {
                                         anchors.centerIn: parent
                                         visible: tile.source === ""
                                         text: tile.modelData.name || qsTr("WS %1").arg(tile.modelData.number)
-                                        color: Qt.alpha(overview.overviewColor, 0.45)
-                                        font.family: overview.font.family
+                                        color: Qt.alpha(overview.settings.overviewColor, 0.45)
+                                        font.family: overview.settings.font.family
                                         font.pixelSize: 11
                                         font.weight: Font.DemiBold
                                     }
@@ -836,8 +847,8 @@ Item {
                                             anchors.centerIn: parent
                                             text: [tile.modelData.number, tile.modelData.app]
                                                 .filter(part => part).join(" · ")
-                                            color: tile.current ? overview.accent : overview.overviewColor
-                                            font.family: overview.font.family
+                                            color: tile.current ? overview.settings.accent : overview.settings.overviewColor
+                                            font.family: overview.settings.font.family
                                             font.pixelSize: 10
                                         }
                                     }
@@ -859,15 +870,15 @@ Item {
                                 width: dock.tileWidth
                                 height: dock.tileHeight
                                 radius: 4
-                                color: addArea.containsMouse ? Qt.alpha(overview.accent, 0.1) : "transparent"
+                                color: addArea.containsMouse ? Qt.alpha(overview.settings.accent, 0.1) : "transparent"
                                 border.width: 1
-                                border.color: Qt.alpha(overview.overviewColor, addArea.containsMouse ? 0.3 : 0.12)
+                                border.color: Qt.alpha(overview.settings.overviewColor, addArea.containsMouse ? 0.3 : 0.12)
 
                                 Text {
                                     anchors.centerIn: parent
                                     text: "+"
-                                    color: Qt.alpha(overview.overviewColor, 0.5)
-                                    font.family: overview.font.family
+                                    color: Qt.alpha(overview.settings.overviewColor, 0.5)
+                                    font.family: overview.settings.font.family
                                     font.pixelSize: 22
                                 }
 
