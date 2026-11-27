@@ -270,8 +270,7 @@ Item {
         onStatusChanged: {
             if (socket.status === WebSocket.Open) {
                 socket.sendTextMessage("sub -e all")
-                if (popup.visible)
-                    refresh.restart()
+                refresh.restart()
             } else if (socket.status === WebSocket.Closed || socket.status === WebSocket.Error) {
                 overview.cards = []
                 reconnect.start()
@@ -285,9 +284,9 @@ Item {
                 return
             }
             if (response.messageType === "event_subscription") {
-                // Only asked for while the overview shows, and again on opening
-                if (popup.visible)
-                    refresh.restart()
+                // Kept up to date while closed too, so the zoom starts from where the windows are now rather than
+                // where they were when it last opened. One small query per change; no pictures while closed
+                refresh.restart()
                 return
             }
             if (response.messageType !== "client_response")
