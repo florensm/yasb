@@ -604,10 +604,12 @@ Item {
                                     readonly property bool hovered: tileArea.containsMouse && overview.dragging === null
                                     readonly property bool lifted: overview.dragging?.id === modelData.id
 
-                                    x: Math.round(modelData.x * card.ratio)
-                                    y: Math.round(modelData.y * card.ratio)
-                                    width: Math.max(8, Math.round(modelData.width * card.ratio))
-                                    height: Math.max(8, Math.round(modelData.height * card.ratio))
+                                    // Not rounded: the card grows to full screen, and a rounded half pixel here would be
+                                    // several pixels there, a jump as the picture hands over to the real window
+                                    x: modelData.x * card.ratio
+                                    y: modelData.y * card.ratio
+                                    width: Math.max(8, modelData.width * card.ratio)
+                                    height: Math.max(8, modelData.height * card.ratio)
                                     opacity: (lifted ? 0.35 : 1) * arrival
                                     scale: 0.85 + 0.15 * arrival
 
@@ -689,9 +691,26 @@ Item {
                                     }
 
                                     WindowThumbnail {
-                                        anchors.fill: parent
+                                        id: picture
+
+                                        // DWM's picture is the whole window, with the invisible resize borders Windows
+                                        // puts left, right and below it (about 7 px each); GlazeWM's place is the
+                                        // visible frame. So the picture reaches past the frame by those borders, to
+                                        // line up with the real window
+                                        readonly property real extraWidth: sourceWidth - tile.modelData.width
+                                        readonly property real extraHeight: sourceHeight - tile.modelData.height
+                                        readonly property bool bordered: sourceWidth > 0 && extraWidth > 0 && extraWidth <= 48
+                                                                         && extraHeight >= 0 && extraHeight <= 48
+
+                                        x: bordered ? -extraWidth / 2 * card.ratio : 0
+                                        y: 0
+                                        width: bordered ? sourceWidth * card.ratio : tile.width
+                                        height: bordered ? sourceHeight * card.ratio : tile.height
                                         hwnd: tile.modelData.hwnd
+                                        // While a card zooms out to the screen, only its own pictures are placed each
+                                        // frame; the others are fading anyway
                                         visible: overview.livePreviews && overview.dragging === null && popup.visible
+                                                 && (!popup.closing || card.index === overview.zoomCard)
                                     }
 
                                     MouseArea {

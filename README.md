@@ -3,6 +3,17 @@
 A drop-in copy of your config folder for yasb's `feat/qtquick-migration` branch (checked against `aeac013`). Only files in the config folder changed, nothing in yasb's
 source.
 
+## What changed in v26.1
+
+- **No more jump between the overview and the real windows.** Window positions were rounded at card size, which
+  became a few pixels at full screen, and the pictures left out the invisible resize borders Windows puts around
+  windows (about 7 px left, right and below). Both are fixed, so as a card zooms to full screen its pictures land
+  exactly on the real windows.
+- While a card zooms out to the screen, only its own pictures move each frame; the other cards' fade without them.
+- Still a bit rough while zooming? yasb's own `WindowThumbnail` hands DWM each frame's position one frame early, so the
+  live pictures run slightly ahead of everything around them. That's in yasb's Python, not this folder; the
+  `perf/window-thumbnail` branch of florensm/yasb fixes it.
+
 ## What changed from v25
 
 - **The overview stays open** while other windows take the focus, so closing or moving windows from it no longer
