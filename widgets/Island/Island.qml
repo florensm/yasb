@@ -156,7 +156,7 @@ Item {
 
     // Hangs up by closing the call's window, as its close button does
     function hangUp() {
-        console.log("Island: hanging up:", teams.window?.title ?? "no call window")
+        console.info("Island: hanging up:", teams.window?.title ?? "no call window")
         teams.hangUp()
     }
 
@@ -272,11 +272,11 @@ Item {
                 }
             }
             if (window) {
-                console.log(`Island: to workspace ${workspace.name}, window ${window.id}`)
+                console.info(`Island: to workspace ${workspace.name}, window ${window.id}`)
                 glazewm.sendTextMessage(`command focus --workspace ${workspace.name}`)
                 glazewm.sendTextMessage(`command focus --container-id ${window.id}`)
             } else {
-                console.log("Island: GlazeWM doesn't manage the call window; focusing it through Windows")
+                console.info("Island: GlazeWM doesn't manage the call window; focusing it through Windows")
                 teams.switchTo(hwnd)
             }
             keyboardFocus.restart()

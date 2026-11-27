@@ -87,6 +87,6 @@ Item {
 
     // To see in YASB's log what Teams calls its windows, should the call go unnoticed
     property string titles: teamsWindows.map(window => window.title).join("  /  ")
-    onTitlesChanged: console.log("Island: Teams windows:", titles === "" ? "(none)" : titles, "->",
+    onTitlesChanged: console.info("Island: Teams windows:", titles === "" ? "(none)" : titles, "->",
                                  window ? `call "${name}"` : "no call")
 }

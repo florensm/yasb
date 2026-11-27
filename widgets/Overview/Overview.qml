@@ -112,7 +112,7 @@ Item {
         selected = Math.max(0, cards.findIndex(card => card.focused || card.displayed))
         popup.open()
         if (logGeometry)
-            console.log(`Overview: screen ${screen.width}x${screen.height} at ${screen.virtualX},${screen.virtualY}, scale ${screen.devicePixelRatio}, `
+            console.info(`Overview: screen ${screen.width}x${screen.height} at ${screen.virtualX},${screen.virtualY}, scale ${screen.devicePixelRatio}, `
                         + `overlay ${popup.width}x${popup.height} at ${popup.x},${popup.y}, bar ${PanelBus.barHeight}, monitor `
                         + JSON.stringify(cards[0]?.monitor ?? null))
         windowList.takeFocus(popup.window)
@@ -717,7 +717,7 @@ Item {
                                         onSourceWidthChanged: Qt.callLater(logPlace)
                                         function logPlace() {
                                             if (overview.logGeometry && sourceWidth > 0)
-                                                console.log(`Overview: "${tile.modelData.title}" on ${card.modelData.name}: GlazeWM `
+                                                console.info(`Overview: "${tile.modelData.title}" on ${card.modelData.name}: GlazeWM `
                                                             + `${tile.modelData.x},${tile.modelData.y} ${tile.modelData.width}x${tile.modelData.height}, `
                                                             + `picture ${sourceWidth}x${sourceHeight}, borders ${sourceWidth - tile.modelData.width}x`
                                                             + `${sourceHeight - tile.modelData.height}` + (bordered ? "" : " (not used)"))
