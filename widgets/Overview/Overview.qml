@@ -38,6 +38,9 @@ Item {
     // The wallpaper behind each workspace's windows
     property bool showWallpaper: true
     property int maxColumns: 4
+    // Writes each window's place (GlazeWM's) and its picture's size (DWM's) to YASB's log as the overview opens,
+    // lines starting with "Overview:", to see why a picture doesn't line up with its window
+    property bool logGeometry: true
     // The zoom in and out, in milliseconds
     property int openDuration: 380
     property int closeDuration: 320
@@ -108,6 +111,10 @@ Item {
         zoomTarget = -1
         selected = Math.max(0, cards.findIndex(card => card.focused || card.displayed))
         popup.open()
+        if (logGeometry)
+            console.log(`Overview: screen ${screen.width}x${screen.height} at ${screen.virtualX},${screen.virtualY}, scale ${screen.devicePixelRatio}, `
+                        + `overlay ${popup.width}x${popup.height} at ${popup.x},${popup.y}, bar ${PanelBus.barHeight}, monitor `
+                        + JSON.stringify(cards[0]?.monitor ?? null))
         windowList.takeFocus(popup.window)
         keys.forceActiveFocus()
         send("query monitors")
@@ -707,6 +714,14 @@ Item {
                                         width: bordered ? sourceWidth * card.ratio : tile.width
                                         height: bordered ? sourceHeight * card.ratio : tile.height
                                         hwnd: tile.modelData.hwnd
+                                        onSourceWidthChanged: Qt.callLater(logPlace)
+                                        function logPlace() {
+                                            if (overview.logGeometry && sourceWidth > 0)
+                                                console.log(`Overview: "${tile.modelData.title}" on ${card.modelData.name}: GlazeWM `
+                                                            + `${tile.modelData.x},${tile.modelData.y} ${tile.modelData.width}x${tile.modelData.height}, `
+                                                            + `picture ${sourceWidth}x${sourceHeight}, borders ${sourceWidth - tile.modelData.width}x`
+                                                            + `${sourceHeight - tile.modelData.height}` + (bordered ? "" : " (not used)"))
+                                        }
                                         // While a card zooms out to the screen, only its own pictures are placed each
                                         // frame; the others are fading anyway
                                         visible: overview.livePreviews && overview.dragging === null && popup.visible
