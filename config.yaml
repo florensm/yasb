@@ -1,4 +1,3 @@
-watch: true
 debug: false
 update_check: true
 # The theme for every bar: a file in themes/ (pick one in the control center, Ctrl+Alt+C).

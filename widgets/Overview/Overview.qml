@@ -700,17 +700,20 @@ Item {
                                     WindowThumbnail {
                                         id: picture
 
-                                        // DWM's picture is the whole window, with the invisible resize borders Windows
-                                        // puts left, right and below it (about 7 px each); GlazeWM's place is the
-                                        // visible frame. So the picture reaches past the frame by those borders, to
-                                        // line up with the real window
+                                        // Drawn at the window's own size, so DWM never stretches it (a stretched picture
+                                        // looks soft, then sharp as the real window takes over) and it lands on the real
+                                        // window. DWM's picture is the whole window; GlazeWM's place can differ from it:
+                                        //  - bigger picture: Windows' invisible resize borders, left, right and below
+                                        //    (about 7 px each at 100%), so it hangs from the top, centred across
+                                        //  - smaller picture: the window sits inside its place (GlazeWM leaves a pixel
+                                        //    or so around it), so it's centred both ways
                                         readonly property real extraWidth: sourceWidth - tile.modelData.width
                                         readonly property real extraHeight: sourceHeight - tile.modelData.height
-                                        readonly property bool bordered: sourceWidth > 0 && extraWidth > 0 && extraWidth <= 48
-                                                                         && extraHeight >= 0 && extraHeight <= 48
+                                        readonly property bool bordered: sourceWidth > 0 && sourceHeight > 0
+                                                                         && Math.abs(extraWidth) <= 48 && Math.abs(extraHeight) <= 48
 
                                         x: bordered ? -extraWidth / 2 * card.ratio : 0
-                                        y: 0
+                                        y: bordered && extraHeight < 0 ? -extraHeight / 2 * card.ratio : 0
                                         width: bordered ? sourceWidth * card.ratio : tile.width
                                         height: bordered ? sourceHeight * card.ratio : tile.height
                                         hwnd: tile.modelData.hwnd
