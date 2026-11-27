@@ -1,0 +1,52 @@
+watch: true
+debug: false
+update_check: true
+# The theme for every bar: a file in themes/ (pick one in the control center, Ctrl+Alt+C).
+theme: tonal
+
+# A bar along the top, from layouts/frame.qml. It reserves its space like Windows' own taskbar (`reserve_space`), so
+# Windows shrinks the screen's work area by it: GlazeWM tiles below it and re-tiles when it changes, and maximized
+# windows stop at the bar. GlazeWM's outer_gap is then only the gap past it (see glazewm-gaps.yaml).
+#
+# Search, Performance, Weather, Wallpapers, Sound and Notifications each open their own panel, a card floating
+# under their button. The island in the middle opens Sound while something plays, and Notifications while one has
+# just come in.
+bars:
+  top:
+    layout: frame
+    edge: top
+    thickness: 32              # barHeight in layouts/frame.qml; 42 with the frame (room for its rounded corners).
+    reserve_space: true
+    always_on_top: true
+    hide_on_fullscreen: true
+    backdrop: true             # Blurs behind popups such as the calendar and the tray.
+    widgets:
+      left: ["GlazewmWorkspaces", "Overview", "Divider", "Performance"]
+      center: ["Island"]
+      right: ["QuickLaunch", "Weather", "Wallpapers", "Sound", "Notifications", "Systray", "Divider", "Clock", "Divider", "ControlCenter"]
+
+  # The frame around the screen: uncomment these three bars, set `framed: true` in layouts/frame.qml, set the top
+  # bar's thickness to 42 and use the gaps for the frame in glazewm-gaps.yaml.
+  # frame-left:
+  #   layout: frame
+  #   edge: left
+  #   thickness: 14              # 4 rail + room for the rounded corners.
+  #   reserve_space: true
+  #   always_on_top: true
+  #   hide_on_fullscreen: true
+
+  # frame-right:
+  #   layout: frame
+  #   edge: right
+  #   thickness: 14
+  #   reserve_space: true
+  #   always_on_top: true
+  #   hide_on_fullscreen: true
+
+  # frame-bottom:
+  #   layout: frame
+  #   edge: bottom
+  #   thickness: 14
+  #   reserve_space: true
+  #   always_on_top: true
+  #   hide_on_fullscreen: true

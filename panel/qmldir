@@ -1,0 +1,11 @@
+singleton PanelBus 1.0 PanelBus.qml
+singleton WallpaperColors 1.0 WallpaperColors.qml
+PanelHost 1.0 PanelHost.qml
+PanelSurface 1.0 PanelSurface.qml
+WallpaperPalette 1.0 WallpaperPalette.qml
+BarButton 1.0 BarButton.qml
+Icon 1.0 Icon.qml
+PopupFace 1.0 PopupFace.qml
+PanelSlider 1.0 PanelSlider.qml
+PanelSwitch 1.0 PanelSwitch.qml
+singleton ColorSchemes 1.0 ColorSchemes.qml
